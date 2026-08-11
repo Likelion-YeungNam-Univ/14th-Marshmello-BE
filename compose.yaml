@@ -1,0 +1,67 @@
+services:
+  app:
+    platform: linux/amd64
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_ID: ${BUILD_ID:?BUILD_ID is required}
+      labels:
+        BUILD_ID: ${BUILD_ID:?BUILD_ID is required}
+        org.opencontainers.image.revision: ${BUILD_ID:?BUILD_ID is required}
+    ports:
+      - 127.0.0.1:${APP_PORT:?APP_PORT is required}:8080
+    environment:
+      eureka.client.enabled: "false"
+      spring.cloud.discovery.enabled: "false"
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "java", "-cp", "/app/healthcheck", "Http404Probe", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  postgres:
+    platform: linux/amd64
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+        mode: 0400
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:?POSTGRES_PASSWORD_FILE is required}
+
+volumes:
+  postgres-data:

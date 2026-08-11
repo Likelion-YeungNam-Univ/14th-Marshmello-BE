@@ -1,0 +1,14 @@
+.git
+.gradle
+build
+.idea
+.vscode
+.omo
+*.iml
+*.zip
+.env*
+.secrets
+*.key
+*.pem
+*.p12
+*.jks
