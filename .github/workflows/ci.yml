@@ -102,9 +102,9 @@ jobs:
 
           readonly HTTP_CODE="$(
             curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-              --max-time 10 "http://127.0.0.1:${APP_PORT}/"
+              --max-time 10 "http://127.0.0.1:${APP_PORT}/actuator/health"
           )"
-          [[ "$HTTP_CODE" == "404" ]]
+          [[ "$HTTP_CODE" == "200" ]]
 
           readonly DATABASE_RESULT="$(
             docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T postgres \

@@ -53,7 +53,7 @@ services:
         max-size: 10m
         max-file: "3"
     healthcheck:
-      test: ["CMD", "java", "-cp", "/app/healthcheck", "Http404Probe", "http://127.0.0.1:8080/"]
+      test: ["CMD", "java", "-cp", "/app/healthcheck", "Http200Probe", "http://127.0.0.1:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 6
