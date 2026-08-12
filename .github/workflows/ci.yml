@@ -66,6 +66,8 @@ jobs:
       - name: Run Compose deployment test
         env:
           BUILD_ID: ${{ github.sha }}
+          OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
+          OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
         run: |
           set -euo pipefail
 
