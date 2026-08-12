@@ -15,7 +15,17 @@ services:
     environment:
       eureka.client.enabled: "false"
       spring.cloud.discovery.enabled: "false"
-    user: "10001:10001"
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
+    secrets:
+      - source: postgres_password
+        target: spring.datasource.password
+        mode: 0400
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "${APP_UID:?APP_UID is required}:${APP_GID:?APP_GID is required}"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
