@@ -174,8 +174,8 @@ verify_app() {
   [[ "$status" == 'running' ]] || { VERIFY_ERROR='app-is-not-running'; return 1; }
   ports="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{json .NetworkSettings.Ports}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-ports'; return 1; }
   [[ "$ports" == "{\"8080/tcp\":[{\"HostIp\":\"127.0.0.1\",\"HostPort\":\"$port\"}]}" ]] || { VERIFY_ERROR='app-port-mapping-mismatch'; return 1; }
-  http_code="$(timeout --foreground "$COMMAND_TIMEOUT" curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "http://127.0.0.1:$port/")" || { VERIFY_ERROR='readiness-request-failed'; return 1; }
-  [[ "$http_code" == '404' ]] || { VERIFY_ERROR="readiness-status-is-$http_code"; return 1; }
+  http_code="$(timeout --foreground "$COMMAND_TIMEOUT" curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "http://127.0.0.1:$port/actuator/health")" || { VERIFY_ERROR='readiness-request-failed'; return 1; }
+  [[ "$http_code" == '200' ]] || { VERIFY_ERROR="readiness-status-is-$http_code"; return 1; }
 }
 
 rollback() {
@@ -187,7 +187,7 @@ rollback() {
   export BUILD_ID="$PRIOR_RELEASE_ID"
   export APP_PORT="$PRIOR_APP_PORT"
   export POSTGRES_IMAGE POSTGRES_PASSWORD_FILE APP_UID APP_GID
-  if ! compose "$PRIOR_BUNDLE_PATH" up -d --no-deps app; then
+  if ! compose "$PRIOR_BUNDLE_PATH" up -d --wait --no-deps app; then
     die 36 "new release failed ($failure); rollback command failed"
   fi
   if ! verify_app "$PRIOR_BUNDLE_PATH" "$PRIOR_APP_IMAGE" "$PRIOR_RELEASE_ID" "$PRIOR_APP_PORT"; then
