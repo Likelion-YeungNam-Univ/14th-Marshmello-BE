@@ -1,0 +1,112 @@
+name: Deploy
+
+on:
+  workflow_call:
+
+concurrency:
+  group: production-ec2
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    name: Deploy EC2
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APP_PORT: ${{ vars.APP_PORT }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+      EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      GH_ACTOR: ${{ github.actor }}
+      GH_TOKEN: ${{ github.token }}
+      IMAGE_REPOSITORY: ${{ vars.GHCR_IMAGE }}
+      RELEASE_ID: ${{ github.sha }}
+    steps:
+      - name: Check out tested develop commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_ID" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_ID" ]]
+          [[ "$IMAGE_REPOSITORY" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ ]]
+          [[ "$APP_PORT" =~ ^[0-9]+$ ]] && (( 10#$APP_PORT >= 1 && 10#$APP_PORT <= 65535 ))
+          [[ "$POSTGRES_DB" =~ ^[a-z_][a-z0-9_]{0,62}$ ]]
+          [[ "$POSTGRES_USER" =~ ^[a-z_][a-z0-9_]{0,62}$ ]]
+
+      - name: Build and publish immutable amd64 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          readonly IMAGE_TAG="${IMAGE_REPOSITORY}:${RELEASE_ID}"
+
+          docker build \
+            --platform linux/amd64 \
+            --build-arg "BUILD_ID=${RELEASE_ID}" \
+            --tag "$IMAGE_TAG" \
+            .
+
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GH_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          docker push "$IMAGE_TAG"
+
+          IMAGE_DIGEST="$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Digest}}')"
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          readonly APP_IMAGE="${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
+          [[ "$APP_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*@sha256:[0-9a-f]{64}$ ]]
+          {
+            printf 'APP_IMAGE=%s\n' "$APP_IMAGE"
+          } >> "$GITHUB_ENV"
+
+      - name: Transfer immutable release bundle and deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$APP_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*@sha256:[0-9a-f]{64}$ ]]
+          [[ "$EC2_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$EC2_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          [[ -n "$EC2_SSH_PRIVATE_KEY" ]]
+          [[ -n "$EC2_KNOWN_HOSTS" ]]
+
+          BUNDLE_DIR="$(mktemp -d "${RUNNER_TEMP}/marshmello-release.XXXXXX")"
+          SSH_DIR="$(mktemp -d "${RUNNER_TEMP}/marshmello-ssh.XXXXXX")"
+          cleanup() {
+            rm -rf -- "$BUNDLE_DIR" "$SSH_DIR"
+          }
+          trap cleanup EXIT INT TERM
+
+          cp compose.yaml "$BUNDLE_DIR/compose.yaml"
+          cp scripts/deploy-ec2.sh "$BUNDLE_DIR/deploy-ec2.sh"
+          chmod 700 "$BUNDLE_DIR/deploy-ec2.sh"
+
+          SSH_KEY="$SSH_DIR/id_ed25519"
+          SSH_KNOWN_HOSTS="$SSH_DIR/known_hosts"
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > "$SSH_KEY"
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > "$SSH_KNOWN_HOSTS"
+          chmod 600 "$SSH_KEY" "$SSH_KNOWN_HOSTS"
+          ssh_options=(
+            -i "$SSH_KEY"
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS"
+          )
+
+          readonly TARGET="${EC2_USER}@${EC2_HOST}"
+          readonly REMOTE_RELEASE="/opt/marshmello-was/releases/${RELEASE_ID}"
+          ssh "${ssh_options[@]}" "$TARGET" "test ! -e '$REMOTE_RELEASE' && mkdir -m 700 -- '$REMOTE_RELEASE'"
+          scp "${ssh_options[@]}" "$BUNDLE_DIR/compose.yaml" "$BUNDLE_DIR/deploy-ec2.sh" "$TARGET:$REMOTE_RELEASE/"
+          ssh "${ssh_options[@]}" "$TARGET" "chmod 700 -- '$REMOTE_RELEASE/deploy-ec2.sh' && env RELEASE_ID='$RELEASE_ID' APP_IMAGE='$APP_IMAGE' APP_PORT='$APP_PORT' POSTGRES_DB='$POSTGRES_DB' POSTGRES_USER='$POSTGRES_USER' '$REMOTE_RELEASE/deploy-ec2.sh'"

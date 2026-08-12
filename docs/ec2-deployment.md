@@ -1,14 +1,14 @@
 # EC2 deployment runbook
 
 This is the operator contract for the current SSH-driven deployment. It has not
-been run against a real EC2 host. The supported target is Amazon Linux 2023 on
+been run against a real EC2 host. The supported target is Ubuntu 24.04 LTS on
 an x86_64 (amd64) EC2 instance. The published application image must be a
 linux/amd64 image in private GHCR.
 
 ## Host and access prerequisites
 
-* Install Docker Engine and the Compose v2 plugin from the Amazon Linux 2023
-  package/vendor source. The installed client must support `docker compose up
+* Install Docker Engine and the Compose v2 plugin from Docker's official Ubuntu
+  apt repository. The installed client must support `docker compose up
   --wait`; verify with `docker version` and `docker compose version`.
 * Create a dedicated deploy user, add it to the Docker group (or equivalent
   Docker access), and run the deployment as that user. Automation must not
@@ -87,8 +87,11 @@ fixed to the digest shown above; `DEPLOY_ROOT` defaults to
 `/opt/marshmello-was/secrets/postgres_password`; and `APP_PORT` defaults to
 `8080` and must be an integer from 1 through 65535. `POSTGRES_DB` and
 `POSTGRES_USER` are required by `compose.yaml` and have no script defaults.
-The script exports `BUILD_ID=$RELEASE_ID` for Compose interpolation and uses
-the stable project name `marshmello-was`.
+The script must run as the non-root deploy user. It exports that user's UID and
+GID as `APP_UID` and `APP_GID`, allowing the non-root app container to read the
+deploy-user-owned `0600` PostgreSQL password file. It also exports
+`BUILD_ID=$RELEASE_ID` for Compose interpolation and uses the stable project
+name `marshmello-was`.
 
 ## Verification and state
 
@@ -149,9 +152,30 @@ restore and document retention. The Compose named volume alone is not EC2/EBS
 durability and is not a disaster-recovery plan. Volume restore, instance
 replacement, and disaster recovery are separate operator runbooks.
 
-## GitHub activation checklist (future workflow use)
+## GitHub Actions
 
-Before enabling automation, confirm:
+The active workflows are `.github/workflows/ci.yml` and
+`.github/workflows/deploy.yml`. `CI` runs tests, builds the linux/amd64 image,
+starts the application and PostgreSQL with Compose, verifies HTTP readiness and
+a real PostgreSQL query, and cleans up the temporary stack. It runs for every
+push and for pull requests targeting `develop` or `main`. `Deploy` runs only
+after a successful push-based `CI` run on `develop`; it checks out the exact
+tested commit, publishes an immutable GHCR digest, and invokes the SSH deployment
+contract above through the protected `production` environment.
+
+Configure these production environment values before merging to `develop`:
+
+* Variables: `GHCR_IMAGE`, `APP_PORT`, `POSTGRES_DB`, `POSTGRES_USER`.
+* Secrets: `EC2_HOST`, `EC2_USER`, `EC2_SSH_PRIVATE_KEY`,
+  `EC2_KNOWN_HOSTS`.
+
+Protect `develop` and `main` with pull requests and require both `Test` and
+`Build image and deployment test` checks. Restrict the `production` environment
+to `develop` and add a required reviewer when the repository plan supports it.
+
+## GitHub production readiness checklist
+
+Before merging a deployment-triggering change to `develop`, confirm:
 
 1. The repository and GitHub environment are the intended production targets.
 2. The runner has a verified EC2 host key and SSH source allowlisting is in
@@ -162,7 +186,7 @@ Before enabling automation, confirm:
    GitHub variables. No password value is committed.
 4. The GHCR application image is immutable and published for `linux/amd64`.
 5. An operator has completed and recorded one successful manual deployment and
-   its verification before activating a workflow.
+   its verification before the first automatic deployment.
 
 ## Explicit future scope
 

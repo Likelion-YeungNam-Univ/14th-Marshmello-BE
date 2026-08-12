@@ -186,7 +186,7 @@ rollback() {
   export APP_IMAGE="$PRIOR_APP_IMAGE"
   export BUILD_ID="$PRIOR_RELEASE_ID"
   export APP_PORT="$PRIOR_APP_PORT"
-  export POSTGRES_IMAGE POSTGRES_PASSWORD_FILE
+  export POSTGRES_IMAGE POSTGRES_PASSWORD_FILE APP_UID APP_GID
   if ! compose "$PRIOR_BUNDLE_PATH" up -d --no-deps app; then
     die 36 "new release failed ($failure); rollback command failed"
   fi
@@ -204,6 +204,11 @@ DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/marshmello-was}"
 POSTGRES_PASSWORD_FILE="${POSTGRES_PASSWORD_FILE:-/opt/marshmello-was/secrets/postgres_password}"
 APP_PORT="${APP_PORT:-8080}"
 DEPLOY_UID="$(id -u)"
+DEPLOY_GID="$(id -g)"
+
+[[ "$DEPLOY_UID" != 0 ]] || die 2 'deployment must run as a non-root deploy user'
+APP_UID="$DEPLOY_UID"
+APP_GID="$DEPLOY_GID"
 
 [[ -n "$RELEASE_ID" ]] || die 2 'RELEASE_ID is required'
 is_release_id "$RELEASE_ID" || die 2 'RELEASE_ID must be exactly 40 lowercase hexadecimal characters'
@@ -276,7 +281,7 @@ elif [[ -e "$PREVIOUS_STATE" ]]; then
   die 32 'previous record exists without a current record'
 fi
 
-export APP_IMAGE POSTGRES_IMAGE POSTGRES_PASSWORD_FILE APP_PORT
+export APP_IMAGE POSTGRES_IMAGE POSTGRES_PASSWORD_FILE APP_PORT APP_UID APP_GID
 export BUILD_ID="$RELEASE_ID"
 
 compose "$NEW_BUNDLE_PATH" pull || die 20 'new release image pull failed'
