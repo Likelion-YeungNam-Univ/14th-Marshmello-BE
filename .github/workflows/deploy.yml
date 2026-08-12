@@ -22,6 +22,8 @@ jobs:
       APP_PORT: ${{ vars.APP_PORT }}
       POSTGRES_DB: ${{ vars.POSTGRES_DB }}
       POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
+      OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
       EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
@@ -109,4 +111,4 @@ jobs:
           readonly REMOTE_RELEASE="/opt/marshmello-was/releases/${RELEASE_ID}"
           ssh "${ssh_options[@]}" "$TARGET" "test ! -e '$REMOTE_RELEASE' && mkdir -m 700 -- '$REMOTE_RELEASE'"
           scp "${ssh_options[@]}" "$BUNDLE_DIR/compose.yaml" "$BUNDLE_DIR/deploy-ec2.sh" "$TARGET:$REMOTE_RELEASE/"
-          ssh "${ssh_options[@]}" "$TARGET" "chmod 700 -- '$REMOTE_RELEASE/deploy-ec2.sh' && env RELEASE_ID='$RELEASE_ID' APP_IMAGE='$APP_IMAGE' APP_PORT='$APP_PORT' POSTGRES_DB='$POSTGRES_DB' POSTGRES_USER='$POSTGRES_USER' '$REMOTE_RELEASE/deploy-ec2.sh'"
+          ssh "${ssh_options[@]}" "$TARGET" "chmod 700 -- '$REMOTE_RELEASE/deploy-ec2.sh' && env RELEASE_ID='$RELEASE_ID' APP_IMAGE='$APP_IMAGE' APP_PORT='$APP_PORT' POSTGRES_DB='$POSTGRES_DB' POSTGRES_USER='$POSTGRES_USER' OIDC_CLIENT_ID='$OIDC_CLIENT_ID' OIDC_CLIENT_SECRET='$OIDC_CLIENT_SECRET' '$REMOTE_RELEASE/deploy-ec2.sh'"
