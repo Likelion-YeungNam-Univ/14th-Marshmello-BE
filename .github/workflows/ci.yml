@@ -64,8 +64,8 @@ jobs:
             .
 
           [[ "$(docker image inspect --format '{{.Architecture}}' "$IMAGE_TAG")" == "amd64" ]]
-          [[ "$(docker image inspect --format '{{index .Config.Labels \"BUILD_ID\"}}' "$IMAGE_TAG")" == "$BUILD_ID" ]]
-          [[ "$(docker image inspect --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' "$IMAGE_TAG")" == "$BUILD_ID" ]]
+          [[ "$(docker image inspect --format '{{index .Config.Labels "BUILD_ID"}}' "$IMAGE_TAG")" == "$BUILD_ID" ]]
+          [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE_TAG")" == "$BUILD_ID" ]]
 
       - name: Run Compose deployment test
         env:
