@@ -7,7 +7,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "users")
 public class User {
@@ -17,7 +19,7 @@ public class User {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "nickname", nullable = false, length = 50)
+    @Column(name = "nickname", nullable = false, length = 15)
     private String nickname;
 
     @Column(name = "expected_delivery_date")
@@ -34,17 +36,5 @@ public class User {
     public void updateProfile(String nickname, LocalDate expectedDeliveryDate) {
         this.nickname = nickname;
         this.expectedDeliveryDate = expectedDeliveryDate;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public String getNickname() {
-        return nickname;
-    }
-
-    public LocalDate getExpectedDeliveryDate() {
-        return expectedDeliveryDate;
     }
 }
