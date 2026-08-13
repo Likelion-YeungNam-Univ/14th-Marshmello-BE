@@ -3,7 +3,7 @@ package Marshmello.MarshmelloWas.infrastructure.ai.openai;
 import Marshmello.MarshmelloWas.domain.report.model.ReportGeneratedContent;
 import Marshmello.MarshmelloWas.domain.report.model.ReportGenerationException;
 import Marshmello.MarshmelloWas.domain.report.dto.ReportGenerationRequest;
-import Marshmello.MarshmelloWas.domain.report.port.ReportGenerator;
+import Marshmello.MarshmelloWas.domain.report.service.port.ReportGenerator;
 import Marshmello.MarshmelloWas.domain.report.dto.ReportTrendPoint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;

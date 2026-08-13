@@ -1,7 +1,5 @@
 package Marshmello.MarshmelloWas.domain.checkin.entity;
 
-import Marshmello.MarshmelloWas.domain.checkin.model.BodyDiaryId;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
