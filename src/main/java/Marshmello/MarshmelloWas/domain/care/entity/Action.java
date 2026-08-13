@@ -6,7 +6,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "actions")
 public class Action {
@@ -25,11 +27,8 @@ public class Action {
     @Column(name = "guide_text", nullable = false, columnDefinition = "TEXT")
     private String guideText;
 
-    @Column(name = "source", nullable = false, length = 50)
+    @Column(name = "source", nullable = false, length = 100)
     private String source;
-
-    @Column(name = "helpfulness_score")
-    private Short helpfulnessScore;
 
     protected Action() {
     }
@@ -38,37 +37,15 @@ public class Action {
             short actionScore,
             String category,
             String guideText,
-            String source,
-            Short helpfulnessScore
+            String source
     ) {
+        if (actionScore < 0 || actionScore > 8) {
+            throw new IllegalArgumentException("actionScore must be between 0 and 8");
+        }
         this.actionScore = actionScore;
         this.category = category;
         this.guideText = guideText;
         this.source = source;
-        this.helpfulnessScore = helpfulnessScore;
     }
 
-    public Long getActionId() {
-        return actionId;
-    }
-
-    public short getActionScore() {
-        return actionScore;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public String getGuideText() {
-        return guideText;
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public Short getHelpfulnessScore() {
-        return helpfulnessScore;
-    }
 }

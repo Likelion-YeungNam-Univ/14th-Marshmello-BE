@@ -20,7 +20,8 @@ class V1SchemaBootstrapTest {
             "IMAGES_ANALYSIS",
             "BODY_DIARY",
             "ACTIONS",
-            "CARE_CARD");
+            "CARE_CARD",
+            "USER_ACTION_FEEDBACK");
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -47,7 +48,7 @@ class V1SchemaBootstrapTest {
                 Boolean.class);
 
         assertThat(tableNames).containsExactlyInAnyOrderElementsOf(EXPECTED_TABLES);
-        assertThat(careCardColumns).contains("ACTION_NAME", "ACTION_REASON", "SOURCE");
+        assertThat(careCardColumns).contains("ACTION_NAME", "ACTION_REASON", "SOURCE", "CREATED_DATE");
         assertThat(nicknameLength).isEqualTo(15);
         assertThat(profileCompletedNullable).isFalse();
     }
