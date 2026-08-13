@@ -1,10 +1,10 @@
-package Marshmello.MarshmelloWas.infrastructure.auth.security;
+package Marshmello.MarshmelloWas.domain.auth.adapter;
 
 import java.util.function.Supplier;
 
-import Marshmello.MarshmelloWas.domain.auth.model.AuthenticatedPrincipal;
-import Marshmello.MarshmelloWas.domain.auth.model.ModelAuthorizationRules;
-import Marshmello.MarshmelloWas.domain.auth.policy.ModelAccessPolicy;
+import Marshmello.MarshmelloWas.domain.auth.service.ModelAccessPolicy;
+import Marshmello.MarshmelloWas.domain.auth.service.ModelAccessPolicy.AuthenticatedPrincipal;
+import Marshmello.MarshmelloWas.domain.auth.service.ModelAccessPolicy.ModelAuthorizationRules;
 import Marshmello.MarshmelloWas.infrastructure.auth.config.AppAuthorizationProperties;
 
 import org.springframework.security.authorization.AuthorizationDecision;

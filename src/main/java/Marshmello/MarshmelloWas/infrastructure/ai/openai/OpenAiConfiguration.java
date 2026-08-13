@@ -1,5 +1,7 @@
 package Marshmello.MarshmelloWas.infrastructure.ai.openai;
 
+import Marshmello.MarshmelloWas.domain.care.adapter.OpenAiCareCardGenerator;
+import Marshmello.MarshmelloWas.domain.report.adapter.OpenAiReportGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;

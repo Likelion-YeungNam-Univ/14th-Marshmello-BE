@@ -1,4 +1,4 @@
-package Marshmello.MarshmelloWas.infrastructure.auth.security;
+package Marshmello.MarshmelloWas.domain.auth.adapter;
 
 import Marshmello.MarshmelloWas.global.exception.AuthenticationRequiredException;
 import org.junit.jupiter.api.Test;

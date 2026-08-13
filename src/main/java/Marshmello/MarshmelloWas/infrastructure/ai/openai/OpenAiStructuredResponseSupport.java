@@ -15,12 +15,12 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 
-final class OpenAiStructuredResponseSupport {
+public final class OpenAiStructuredResponseSupport {
 
     private OpenAiStructuredResponseSupport() {
     }
 
-    static <T> T requireSingleCompletedOutput(StructuredResponse<T> response) {
+    public static <T> T requireSingleCompletedOutput(StructuredResponse<T> response) {
         if (response.status().isEmpty()
                 || response.status().orElseThrow().known() != ResponseStatus.Known.COMPLETED
                 || response.incompleteDetails().isPresent()
@@ -64,7 +64,7 @@ final class OpenAiStructuredResponseSupport {
         return false;
     }
 
-    static FailureKind classify(OpenAIException exception) {
+    public static FailureKind classify(OpenAIException exception) {
         if (exception instanceof OpenAIIoException ioException && isTimeout(ioException)) {
             return FailureKind.TIMEOUT;
         }
@@ -74,7 +74,7 @@ final class OpenAiStructuredResponseSupport {
         return FailureKind.UPSTREAM;
     }
 
-    static String serialize(ObjectMapper objectMapper, Object input) {
+    public static String serialize(ObjectMapper objectMapper, Object input) {
         try {
             return objectMapper.writeValueAsString(input);
         } catch (JsonProcessingException exception) {
@@ -82,22 +82,22 @@ final class OpenAiStructuredResponseSupport {
         }
     }
 
-    enum FailureKind {
+    public enum FailureKind {
         TIMEOUT,
         UPSTREAM,
         INVALID_OUTPUT
     }
 
-    static final class InvalidOutputException extends RuntimeException {
+    public static final class InvalidOutputException extends RuntimeException {
 
-        InvalidOutputException() {
+        public InvalidOutputException() {
         }
 
-        InvalidOutputException(Throwable cause) {
+        public InvalidOutputException(Throwable cause) {
             super(cause);
         }
     }
 
-    static final class UpstreamResponseException extends RuntimeException {
+    public static final class UpstreamResponseException extends RuntimeException {
     }
 }

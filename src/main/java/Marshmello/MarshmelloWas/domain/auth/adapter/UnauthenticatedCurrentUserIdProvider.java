@@ -1,4 +1,4 @@
-package Marshmello.MarshmelloWas.infrastructure.auth.security;
+package Marshmello.MarshmelloWas.domain.auth.adapter;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.global.exception.AuthenticationRequiredException;

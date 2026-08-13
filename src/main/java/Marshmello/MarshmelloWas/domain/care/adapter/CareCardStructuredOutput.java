@@ -1,4 +1,4 @@
-package Marshmello.MarshmelloWas.infrastructure.ai.openai;
+package Marshmello.MarshmelloWas.domain.care.adapter;
 
 public final class CareCardStructuredOutput {
 

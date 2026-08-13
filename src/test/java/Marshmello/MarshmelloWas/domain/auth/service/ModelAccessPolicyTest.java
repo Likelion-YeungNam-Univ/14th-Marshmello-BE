@@ -1,12 +1,12 @@
-package Marshmello.MarshmelloWas.domain.auth.policy;
+package Marshmello.MarshmelloWas.domain.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-import Marshmello.MarshmelloWas.domain.auth.model.AuthenticatedPrincipal;
-import Marshmello.MarshmelloWas.domain.auth.model.ModelAuthorizationRules;
+import Marshmello.MarshmelloWas.domain.auth.service.ModelAccessPolicy.AuthenticatedPrincipal;
+import Marshmello.MarshmelloWas.domain.auth.service.ModelAccessPolicy.ModelAuthorizationRules;
 
 class ModelAccessPolicyTest {
 

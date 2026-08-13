@@ -1,9 +1,9 @@
-package Marshmello.MarshmelloWas.infrastructure.ai.openai;
+package Marshmello.MarshmelloWas.domain.care.adapter;
 
-import Marshmello.MarshmelloWas.domain.care.model.CareCardGeneratedText;
-import Marshmello.MarshmelloWas.domain.care.model.CareCardGenerationException;
 import Marshmello.MarshmelloWas.domain.care.dto.CareCardGenerationRequest;
-import Marshmello.MarshmelloWas.domain.care.service.port.CareCardGenerator;
+import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator;
+import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator.CareCardGeneratedText;
+import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator.CareCardGenerationException;
 import org.springframework.context.annotation.Fallback;
 import org.springframework.stereotype.Component;
 

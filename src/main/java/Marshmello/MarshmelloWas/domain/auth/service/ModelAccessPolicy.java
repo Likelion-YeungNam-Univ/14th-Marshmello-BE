@@ -1,12 +1,10 @@
-package Marshmello.MarshmelloWas.domain.auth.policy;
+package Marshmello.MarshmelloWas.domain.auth.service;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import Marshmello.MarshmelloWas.domain.auth.model.AuthenticatedPrincipal;
-import Marshmello.MarshmelloWas.domain.auth.model.ModelAuthorizationRules;
 
 public final class ModelAccessPolicy {
 
@@ -68,5 +66,25 @@ public final class ModelAccessPolicy {
             return null;
         }
         return email.substring(at + 1);
+    }
+
+    public record AuthenticatedPrincipal(
+            String subject,
+            String email,
+            boolean emailVerified
+    ) {
+    }
+
+    public record ModelAuthorizationRules(
+            List<String> allowedEmails,
+            List<String> allowedEmailDomains,
+            List<String> allowedSubjects,
+            boolean requireVerifiedEmail
+    ) {
+        public ModelAuthorizationRules {
+            allowedEmails = List.copyOf(allowedEmails);
+            allowedEmailDomains = List.copyOf(allowedEmailDomains);
+            allowedSubjects = List.copyOf(allowedSubjects);
+        }
     }
 }

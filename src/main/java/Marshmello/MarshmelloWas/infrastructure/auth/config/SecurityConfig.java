@@ -3,7 +3,7 @@ package Marshmello.MarshmelloWas.infrastructure.auth.config;
 import java.time.Duration;
 import java.util.function.Consumer;
 
-import Marshmello.MarshmelloWas.infrastructure.auth.security.ModelGateAuthorizationManager;
+import Marshmello.MarshmelloWas.domain.auth.adapter.ModelGateAuthorizationManager;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

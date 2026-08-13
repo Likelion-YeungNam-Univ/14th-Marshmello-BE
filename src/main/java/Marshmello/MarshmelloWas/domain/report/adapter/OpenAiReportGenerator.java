@@ -1,9 +1,10 @@
-package Marshmello.MarshmelloWas.infrastructure.ai.openai;
+package Marshmello.MarshmelloWas.domain.report.adapter;
 
-import Marshmello.MarshmelloWas.domain.report.model.ReportGeneratedContent;
-import Marshmello.MarshmelloWas.domain.report.model.ReportGenerationException;
 import Marshmello.MarshmelloWas.domain.report.dto.ReportGenerationRequest;
-import Marshmello.MarshmelloWas.domain.report.service.port.ReportGenerator;
+import Marshmello.MarshmelloWas.domain.report.port.ReportGenerator;
+import Marshmello.MarshmelloWas.domain.report.port.ReportGenerator.GeneratedContent;
+import Marshmello.MarshmelloWas.domain.report.port.ReportGenerator.GenerationException;
+import Marshmello.MarshmelloWas.infrastructure.ai.openai.OpenAiStructuredResponseSupport;
 import Marshmello.MarshmelloWas.domain.report.dto.ReportTrendPoint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
@@ -31,7 +32,7 @@ public final class OpenAiReportGenerator implements ReportGenerator {
     }
 
     @Override
-    public ReportGeneratedContent generate(ReportGenerationRequest request) {
+    public GeneratedContent generate(ReportGenerationRequest request) {
         try {
             List<ReportPointInput> points = request.trendPoints().stream()
                     .map(OpenAiReportGenerator::toInput)
@@ -49,16 +50,16 @@ public final class OpenAiReportGenerator implements ReportGenerator {
             ReportStructuredOutput output =
                     OpenAiStructuredResponseSupport.requireSingleCompletedOutput(response);
             try {
-                return new ReportGeneratedContent(output.content);
+                return new GeneratedContent(output.content);
             } catch (IllegalArgumentException | NullPointerException exception) {
                 throw new OpenAiStructuredResponseSupport.InvalidOutputException(exception);
             }
         } catch (OpenAIException exception) {
             throw generationFailure(reasonFor(OpenAiStructuredResponseSupport.classify(exception)), exception);
         } catch (OpenAiStructuredResponseSupport.InvalidOutputException exception) {
-            throw generationFailure(ReportGenerationException.Reason.INVALID_OUTPUT, exception);
+            throw generationFailure(GenerationException.Reason.INVALID_OUTPUT, exception);
         } catch (OpenAiStructuredResponseSupport.UpstreamResponseException exception) {
-            throw generationFailure(ReportGenerationException.Reason.UPSTREAM, exception);
+            throw generationFailure(GenerationException.Reason.UPSTREAM, exception);
         }
     }
 
@@ -66,19 +67,19 @@ public final class OpenAiReportGenerator implements ReportGenerator {
         return new ReportPointInput(point.checkInDate(), point.score(), point.achieved());
     }
 
-    private static ReportGenerationException.Reason reasonFor(
+    private static GenerationException.Reason reasonFor(
             OpenAiStructuredResponseSupport.FailureKind failureKind) {
         return switch (failureKind) {
-            case TIMEOUT -> ReportGenerationException.Reason.TIMEOUT;
-            case UPSTREAM -> ReportGenerationException.Reason.UPSTREAM;
-            case INVALID_OUTPUT -> ReportGenerationException.Reason.INVALID_OUTPUT;
+            case TIMEOUT -> GenerationException.Reason.TIMEOUT;
+            case UPSTREAM -> GenerationException.Reason.UPSTREAM;
+            case INVALID_OUTPUT -> GenerationException.Reason.INVALID_OUTPUT;
         };
     }
 
-    private static ReportGenerationException generationFailure(
-            ReportGenerationException.Reason reason,
+    private static GenerationException generationFailure(
+            GenerationException.Reason reason,
             Throwable cause) {
-        return new ReportGenerationException(reason, cause);
+        return new GenerationException(reason, cause);
     }
 
     private record ReportInput(List<ReportPointInput> points) {
