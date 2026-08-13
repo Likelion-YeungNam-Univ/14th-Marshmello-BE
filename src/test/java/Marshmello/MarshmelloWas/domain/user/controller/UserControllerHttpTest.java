@@ -36,12 +36,14 @@ class UserControllerHttpTest {
     @Test
     void returnsCurrentUserProfile() throws Exception {
         when(userService.getProfile())
-                .thenReturn(new UserProfileResDto("마시멜로", LocalDate.of(2026, 9, 1)));
+                .thenReturn(new UserProfileResDto(
+                        "마시멜로", LocalDate.of(2026, 9, 1), false));
 
         mockMvc.perform(get("/api/user").with(user("subject")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nickname").value("마시멜로"))
-                .andExpect(jsonPath("$.expectedDeliveryDate").value("2026-09-01"));
+                .andExpect(jsonPath("$.expectedDeliveryDate").value("2026-09-01"))
+                .andExpect(jsonPath("$.profileCompleted").value(false));
 
         verify(userService).getProfile();
     }
@@ -49,7 +51,8 @@ class UserControllerHttpTest {
     @Test
     void updatesCurrentUserProfile() throws Exception {
         when(userService.updateProfile(any(UpdateUserProfileReqDto.class)))
-                .thenReturn(new UserProfileResDto("새닉네임", LocalDate.of(2026, 10, 1)));
+                .thenReturn(new UserProfileResDto(
+                        "새닉네임", LocalDate.of(2026, 10, 1), true));
 
         mockMvc.perform(patch("/api/user")
                         .with(user("subject"))
@@ -63,7 +66,8 @@ class UserControllerHttpTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nickname").value("새닉네임"))
-                .andExpect(jsonPath("$.expectedDeliveryDate").value("2026-10-01"));
+                .andExpect(jsonPath("$.expectedDeliveryDate").value("2026-10-01"))
+                .andExpect(jsonPath("$.profileCompleted").value(true));
 
         verify(userService).updateProfile(
                 new UpdateUserProfileReqDto("새닉네임", LocalDate.of(2026, 10, 1)));

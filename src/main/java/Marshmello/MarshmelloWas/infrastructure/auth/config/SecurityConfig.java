@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.function.Consumer;
 
 import Marshmello.MarshmelloWas.domain.auth.adapter.ModelGateAuthorizationManager;
+import Marshmello.MarshmelloWas.domain.auth.adapter.ProvisioningOidcUserService;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +36,7 @@ public class SecurityConfig {
             OAuth2AuthorizedClientRepository authorizedClientRepository,
             AuthorizationRequestRepository<OAuth2AuthorizationRequest> authorizationRequestRepository,
             ModelGateAuthorizationManager modelGateAuthorizationManager,
+            ProvisioningOidcUserService provisioningOidcUserService,
             OidcSecurityProperties oidcProperties
     ) throws Exception {
         OAuth2AuthorizationRequestResolver authorizationRequestResolver =
@@ -61,6 +63,9 @@ public class SecurityConfig {
             )
             .oauth2Login(login -> login
                 .authorizedClientRepository(authorizedClientRepository)
+                .userInfoEndpoint(userInfo -> userInfo
+                    .oidcUserService(provisioningOidcUserService)
+                )
                 .authorizationEndpoint(endpoint -> endpoint
                     .authorizationRequestRepository(authorizationRequestRepository)
                     .authorizationRequestResolver(authorizationRequestResolver)

@@ -4,5 +4,6 @@ import java.time.LocalDate;
 
 public record UserProfileResDto(
         String nickname,
-        LocalDate expectedDeliveryDate) {
+        LocalDate expectedDeliveryDate,
+        boolean profileCompleted) {
 }

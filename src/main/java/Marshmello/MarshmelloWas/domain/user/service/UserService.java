@@ -40,6 +40,9 @@ public class UserService {
     }
 
     private static UserProfileResDto toResponse(User user) {
-        return new UserProfileResDto(user.getNickname(), user.getExpectedDeliveryDate());
+        return new UserProfileResDto(
+                user.getNickname(),
+                user.getExpectedDeliveryDate(),
+                user.isProfileCompleted());
     }
 }

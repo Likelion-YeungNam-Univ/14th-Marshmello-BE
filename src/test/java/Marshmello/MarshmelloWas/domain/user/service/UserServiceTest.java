@@ -34,6 +34,7 @@ class UserServiceTest {
 
         assertThat(response.nickname()).isEqualTo("마시멜로");
         assertThat(response.expectedDeliveryDate()).isEqualTo(expectedDeliveryDate);
+        assertThat(response.profileCompleted()).isTrue();
     }
 
     @Test
@@ -49,6 +50,7 @@ class UserServiceTest {
         assertThat(user.getExpectedDeliveryDate()).isEqualTo(updatedDeliveryDate);
         assertThat(response.nickname()).isEqualTo("새닉네임");
         assertThat(response.expectedDeliveryDate()).isEqualTo(updatedDeliveryDate);
+        assertThat(response.profileCompleted()).isTrue();
     }
 
     @Test

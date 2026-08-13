@@ -1,0 +1,5 @@
+ALTER TABLE users
+    ADD COLUMN profile_completed BOOLEAN NOT NULL DEFAULT TRUE;
+
+ALTER TABLE users
+    ALTER COLUMN profile_completed SET DEFAULT FALSE;

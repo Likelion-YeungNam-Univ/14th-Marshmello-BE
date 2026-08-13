@@ -28,7 +28,9 @@ class V1SchemaBootstrapTest {
     @Test
     void initializesSchemaInPostgreSqlMode() {
         List<String> tableNames = jdbcTemplate.queryForList(
-                "select table_name from information_schema.tables where table_schema = 'PUBLIC'",
+                "select table_name from information_schema.tables "
+                        + "where table_schema = 'PUBLIC' "
+                        + "and upper(table_name) <> 'FLYWAY_SCHEMA_HISTORY'",
                 String.class);
         List<String> careCardColumns = jdbcTemplate.queryForList(
                 "select column_name from information_schema.columns "
@@ -38,9 +40,15 @@ class V1SchemaBootstrapTest {
                 "select character_maximum_length from information_schema.columns "
                         + "where table_schema = 'PUBLIC' and table_name = 'USERS' and column_name = 'NICKNAME'",
                 Integer.class);
+        Boolean profileCompletedNullable = jdbcTemplate.queryForObject(
+                "select is_nullable = 'YES' from information_schema.columns "
+                        + "where table_schema = 'PUBLIC' and table_name = 'USERS' "
+                        + "and column_name = 'PROFILE_COMPLETED'",
+                Boolean.class);
 
         assertThat(tableNames).containsExactlyInAnyOrderElementsOf(EXPECTED_TABLES);
         assertThat(careCardColumns).contains("ACTION_NAME", "ACTION_REASON", "SOURCE");
         assertThat(nicknameLength).isEqualTo(15);
+        assertThat(profileCompletedNullable).isFalse();
     }
 }
