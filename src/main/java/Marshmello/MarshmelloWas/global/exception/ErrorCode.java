@@ -6,6 +6,7 @@ public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청이 올바르지 않습니다.", false),
     INVALID_REPORT_PERIOD(HttpStatus.BAD_REQUEST, "보고서 기간이 올바르지 않습니다.", false),
     AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다.", false),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.", false),
     CHECK_IN_NOT_FOUND(HttpStatus.NOT_FOUND, "체크인을 찾을 수 없습니다.", false),
     CARE_CARD_NOT_FOUND(HttpStatus.NOT_FOUND, "케어 카드를 찾을 수 없습니다.", false),
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다.", false),

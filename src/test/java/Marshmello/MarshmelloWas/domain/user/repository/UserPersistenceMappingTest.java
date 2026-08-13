@@ -34,6 +34,7 @@ class UserPersistenceMappingTest {
 
         assertThat(savedUser.getNickname()).isEqualTo("marshmello");
         assertThat(savedUser.getExpectedDeliveryDate()).isEqualTo(expectedDeliveryDate);
+        assertThat(savedUser.isProfileCompleted()).isTrue();
         assertThat(socialAccount.getSocialAccountId()).isEqualTo(accountId);
         assertThat(socialAccountRepository.findByUserId(savedUser.getUserId()))
                 .containsExactly(socialAccount);
