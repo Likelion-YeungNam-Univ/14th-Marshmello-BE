@@ -26,7 +26,7 @@ class V1SchemaBootstrapTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void initializesUnchangedV1SchemaInPostgreSqlMode() {
+    void initializesSchemaInPostgreSqlMode() {
         List<String> tableNames = jdbcTemplate.queryForList(
                 "select table_name from information_schema.tables where table_schema = 'PUBLIC'",
                 String.class);
@@ -34,8 +34,13 @@ class V1SchemaBootstrapTest {
                 "select column_name from information_schema.columns "
                         + "where table_schema = 'PUBLIC' and table_name = 'CARE_CARD'",
                 String.class);
+        Integer nicknameLength = jdbcTemplate.queryForObject(
+                "select character_maximum_length from information_schema.columns "
+                        + "where table_schema = 'PUBLIC' and table_name = 'USERS' and column_name = 'NICKNAME'",
+                Integer.class);
 
         assertThat(tableNames).containsExactlyInAnyOrderElementsOf(EXPECTED_TABLES);
         assertThat(careCardColumns).contains("ACTION_NAME", "ACTION_REASON", "SOURCE");
+        assertThat(nicknameLength).isEqualTo(15);
     }
 }
