@@ -47,3 +47,6 @@ out/
 
 ### Local Codex/OMO artifacts ###
 .omo/
+
+### Local generated documentation ###
+/docs/local/
