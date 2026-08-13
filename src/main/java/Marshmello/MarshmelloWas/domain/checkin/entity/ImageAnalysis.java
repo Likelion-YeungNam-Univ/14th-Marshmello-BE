@@ -1,4 +1,4 @@
-package Marshmello.MarshmelloWas.domain.analysis.entity;
+package Marshmello.MarshmelloWas.domain.checkin.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

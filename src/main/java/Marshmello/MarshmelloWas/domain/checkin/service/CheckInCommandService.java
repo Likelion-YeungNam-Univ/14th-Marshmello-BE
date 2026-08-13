@@ -1,7 +1,5 @@
 package Marshmello.MarshmelloWas.domain.checkin.service;
 
-import Marshmello.MarshmelloWas.domain.analysis.entity.ImageAnalysis;
-import Marshmello.MarshmelloWas.domain.analysis.repository.ImageAnalysisRepository;
 import Marshmello.MarshmelloWas.domain.checkin.entity.BodyDiary;
 import Marshmello.MarshmelloWas.domain.checkin.dto.BodyDiaryCommand;
 import Marshmello.MarshmelloWas.domain.checkin.entity.BodyDiaryId;
@@ -12,6 +10,8 @@ import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCommand;
 import Marshmello.MarshmelloWas.domain.checkin.repository.CheckInRepository;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInView;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
+import Marshmello.MarshmelloWas.domain.checkin.entity.ImageAnalysis;
+import Marshmello.MarshmelloWas.domain.checkin.repository.ImageAnalysisRepository;
 import Marshmello.MarshmelloWas.domain.checkin.repository.ImageRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;

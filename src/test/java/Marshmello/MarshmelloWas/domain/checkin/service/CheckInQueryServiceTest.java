@@ -6,13 +6,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import Marshmello.MarshmelloWas.domain.analysis.repository.ImageAnalysisRepository;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInImageReference;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInPageRequest;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
 import Marshmello.MarshmelloWas.domain.checkin.repository.BodyDiaryRepository;
 import Marshmello.MarshmelloWas.domain.checkin.repository.CheckInRepository;
 import Marshmello.MarshmelloWas.domain.checkin.repository.ImageRepository;
+import Marshmello.MarshmelloWas.domain.checkin.repository.ImageAnalysisRepository;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;

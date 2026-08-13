@@ -9,8 +9,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import Marshmello.MarshmelloWas.domain.analysis.entity.ImageAnalysis;
-import Marshmello.MarshmelloWas.domain.analysis.repository.ImageAnalysisRepository;
+import Marshmello.MarshmelloWas.domain.checkin.entity.ImageAnalysis;
+import Marshmello.MarshmelloWas.domain.checkin.repository.ImageAnalysisRepository;
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.care.dto.CareCardCreationResult;
 import Marshmello.MarshmelloWas.domain.care.dto.CareCardGenerationRequest;

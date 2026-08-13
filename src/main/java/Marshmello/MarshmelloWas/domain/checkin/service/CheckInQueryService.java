@@ -1,15 +1,15 @@
 package Marshmello.MarshmelloWas.domain.checkin.service;
 
-import Marshmello.MarshmelloWas.domain.analysis.entity.ImageAnalysis;
-import Marshmello.MarshmelloWas.domain.analysis.repository.ImageAnalysisRepository;
 import Marshmello.MarshmelloWas.domain.checkin.entity.BodyDiary;
 import Marshmello.MarshmelloWas.domain.checkin.repository.BodyDiaryRepository;
 import Marshmello.MarshmelloWas.domain.checkin.dto.BodyDiaryView;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
+import Marshmello.MarshmelloWas.domain.checkin.entity.ImageAnalysis;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInImageReference;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInPage;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInPageRequest;
 import Marshmello.MarshmelloWas.domain.checkin.repository.CheckInRepository;
+import Marshmello.MarshmelloWas.domain.checkin.repository.ImageAnalysisRepository;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryView;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInTrendView;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInView;

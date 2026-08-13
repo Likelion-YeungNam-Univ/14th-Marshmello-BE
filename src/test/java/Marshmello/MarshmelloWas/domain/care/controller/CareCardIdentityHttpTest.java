@@ -11,8 +11,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import Marshmello.MarshmelloWas.domain.analysis.entity.ImageAnalysis;
-import Marshmello.MarshmelloWas.domain.analysis.repository.ImageAnalysisRepository;
+import Marshmello.MarshmelloWas.domain.checkin.entity.ImageAnalysis;
+import Marshmello.MarshmelloWas.domain.checkin.repository.ImageAnalysisRepository;
 import Marshmello.MarshmelloWas.domain.auth.entity.SocialAccount;
 import Marshmello.MarshmelloWas.domain.auth.entity.SocialAccountId;
 import Marshmello.MarshmelloWas.domain.auth.repository.SocialAccountRepository;

@@ -1,6 +1,6 @@
-package Marshmello.MarshmelloWas.domain.analysis.repository;
+package Marshmello.MarshmelloWas.domain.checkin.repository;
 
-import Marshmello.MarshmelloWas.domain.analysis.entity.ImageAnalysis;
+import Marshmello.MarshmelloWas.domain.checkin.entity.ImageAnalysis;
 
 import java.util.Collection;
 import java.util.List;
