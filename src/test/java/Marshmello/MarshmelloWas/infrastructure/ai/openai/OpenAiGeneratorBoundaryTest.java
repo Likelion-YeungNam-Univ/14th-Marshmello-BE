@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import Marshmello.MarshmelloWas.domain.care.adapter.OpenAiCareCardGenerator;
+import Marshmello.MarshmelloWas.domain.report.adapter.OpenAiReportGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
