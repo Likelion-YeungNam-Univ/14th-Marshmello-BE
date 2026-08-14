@@ -11,7 +11,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDate;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(
         name = "care_card",
@@ -31,7 +34,7 @@ public class CareCard {
     @Column(name = "action_reason", nullable = false, columnDefinition = "TEXT")
     private String actionReason;
 
-    @Column(name = "source", nullable = false, length = 50)
+    @Column(name = "source", nullable = false, length = 100)
     private String source;
 
     @Column(name = "checkin_id", nullable = false, unique = true)
@@ -41,38 +44,26 @@ public class CareCard {
     @JoinColumn(name = "action_id", nullable = false)
     private Action action;
 
+    @Column(name = "created_date", nullable = false, updatable = false)
+    private LocalDate createdDate;
+
     protected CareCard() {
     }
 
-    public CareCard(String actionName, String actionReason, String source, Long checkInId, Action action) {
+    public CareCard(
+            String actionName,
+            String actionReason,
+            String source,
+            Long checkInId,
+            Action action,
+            LocalDate createdDate
+    ) {
         this.actionName = actionName;
         this.actionReason = actionReason;
         this.source = source;
         this.checkInId = checkInId;
         this.action = action;
+        this.createdDate = createdDate;
     }
 
-    public Long getCareCardId() {
-        return careCardId;
-    }
-
-    public String getActionName() {
-        return actionName;
-    }
-
-    public String getActionReason() {
-        return actionReason;
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public Long getCheckInId() {
-        return checkInId;
-    }
-
-    public Action getAction() {
-        return action;
-    }
 }
