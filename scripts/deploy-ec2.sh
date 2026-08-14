@@ -159,7 +159,7 @@ verify_app() {
   local image="$2"
   local release_id="$3"
   local port="$4"
-  local cid_output cid expected_image_id actual_image_id build_id status ports http_code
+  local cid_output cid expected_image_id actual_image_id build_id status app_binding http_code
 
   VERIFY_ERROR=''
   cid_output="$(compose "$bundle" ps -q app)" || { VERIFY_ERROR='cannot-resolve-app-container'; return 1; }
@@ -172,8 +172,8 @@ verify_app() {
   [[ "$build_id" == "$release_id" ]] || { VERIFY_ERROR='build-id-label-mismatch'; return 1; }
   status="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{.State.Status}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-status'; return 1; }
   [[ "$status" == 'running' ]] || { VERIFY_ERROR='app-is-not-running'; return 1; }
-  ports="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{json .NetworkSettings.Ports}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-ports'; return 1; }
-  [[ "$ports" == "{\"8080/tcp\":[{\"HostIp\":\"127.0.0.1\",\"HostPort\":\"$port\"}]}" ]] || { VERIFY_ERROR='app-port-mapping-mismatch'; return 1; }
+  app_binding="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{with index .NetworkSettings.Ports "8080/tcp"}}{{with index . 0}}{{.HostIp}}:{{.HostPort}}{{end}}{{end}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-port-binding'; return 1; }
+  [[ "$app_binding" == "0.0.0.0:$port" ]] || { VERIFY_ERROR='app-port-mapping-mismatch'; return 1; }
   http_code="$(timeout --foreground "$COMMAND_TIMEOUT" curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "http://127.0.0.1:$port/actuator/health")" || { VERIFY_ERROR='readiness-request-failed'; return 1; }
   [[ "$http_code" == '200' ]] || { VERIFY_ERROR="readiness-status-is-$http_code"; return 1; }
 }
