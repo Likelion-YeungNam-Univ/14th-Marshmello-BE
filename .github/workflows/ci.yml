@@ -114,8 +114,7 @@ jobs:
 
   deploy:
     name: Deploy
-    # 다시 활성화하려면 아래 조건을 github.event_name == 'push' && github.ref == 'refs/heads/develop' 로 되돌립니다.
-    if: ${{ false }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
     needs:
       - test
       - build-image
