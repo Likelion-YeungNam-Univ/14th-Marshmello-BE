@@ -17,6 +17,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -67,6 +68,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MultipartException.class)
     ResponseEntity<ApiErrorResponse> handleMalformedMultipart(MultipartException exception) {
         return response(ErrorCode.INVALID_REQUEST);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ResponseEntity<Void> handleNoResourceFound(NoResourceFoundException exception) {
+        return ResponseEntity.notFound().build();
     }
 
     @ExceptionHandler(Exception.class)

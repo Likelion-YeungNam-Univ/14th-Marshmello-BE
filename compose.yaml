@@ -11,7 +11,8 @@ services:
         BUILD_ID: ${BUILD_ID:?BUILD_ID is required}
         org.opencontainers.image.revision: ${BUILD_ID:?BUILD_ID is required}
     ports:
-      - 127.0.0.1:${APP_PORT:?APP_PORT is required}:8080
+      - 0.0.0.0:${APP_PORT:?APP_PORT is required}:8080
+      - 0.0.0.0:5174:5174
     environment:
       eureka.client.enabled: "false"
       spring.cloud.discovery.enabled: "false"
