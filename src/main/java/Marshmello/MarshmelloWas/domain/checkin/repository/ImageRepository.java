@@ -32,7 +32,7 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
             from Image image
             where image.checkIn.checkInId in :checkInIds
             """)
-    List<CheckInImageReference> findReferencesByCheckInCheckInIdIn(Collection<Long> checkInIds);
+    List<CheckInImageReference> findReferencesByCheckInIdIn(Collection<Long> checkInIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select image from Image image where image.imageId = :imageId")

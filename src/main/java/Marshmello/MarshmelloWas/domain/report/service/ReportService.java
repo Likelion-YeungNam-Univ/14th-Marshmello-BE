@@ -23,6 +23,7 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -85,9 +86,7 @@ public class ReportService {
 
     private ReportGenerationRequest prepareGeneration(YearMonth month, long userId) {
         LocalDate reportMonth = month.atDay(1);
-        if (reportRepository.findByUserIdAndReportMonth(userId, reportMonth).isPresent()) {
-            throw new ApiException(ErrorCode.REPORT_ALREADY_EXISTS);
-        }
+        requireReportDoesNotExist(userId, reportMonth);
 
         List<CheckIn> checkIns = checkInRepository
                 .findByUserIdAndCheckInDateBetweenOrderByCheckInDateAscCheckInIdAsc(
@@ -99,7 +98,7 @@ public class ReportService {
         }
 
         Map<Long, Long> imageIdsByCheckInId = imageRepository
-                .findReferencesByCheckInCheckInIdIn(checkIns.stream().map(CheckIn::id).toList())
+                .findReferencesByCheckInIdIn(checkIns.stream().map(CheckIn::id).toList())
                 .stream()
                 .collect(Collectors.toMap(
                         CheckInImageReference::checkInId,
@@ -111,8 +110,8 @@ public class ReportService {
                         .collect(Collectors.toMap(ImageAnalysis::imageId, Function.identity()));
 
         List<ReportTrendPoint> trendPoints = checkIns.stream()
-                .map(checkIn -> toTrendPoint(checkIn, imageIdsByCheckInId, analysesByImageId))
-                .filter(Objects::nonNull)
+                .map(checkIn -> findTrendPoint(checkIn, imageIdsByCheckInId, analysesByImageId))
+                .flatMap(Optional::stream)
                 .toList();
         if (trendPoints.size() < 2) {
             throw new ApiException(ErrorCode.REPORT_SOURCE_ERROR);
@@ -120,14 +119,14 @@ public class ReportService {
         return new ReportGenerationRequest(trendPoints);
     }
 
-    private ReportTrendPoint toTrendPoint(
+    private Optional<ReportTrendPoint> findTrendPoint(
             CheckIn checkIn,
             Map<Long, Long> imageIdsByCheckInId,
             Map<Long, ImageAnalysis> analysesByImageId
     ) {
-        Long imageId = imageIdsByCheckInId.get(checkIn.id());
-        ImageAnalysis analysis = imageId == null ? null : analysesByImageId.get(imageId);
-        return analysis == null ? null : new ReportTrendPoint(checkIn.date(), analysis.score());
+        return Optional.ofNullable(imageIdsByCheckInId.get(checkIn.id()))
+                .map(analysesByImageId::get)
+                .map(analysis -> new ReportTrendPoint(checkIn.date(), analysis.score()));
     }
 
     private GeneratedContent generate(ReportGenerationRequest request) {
@@ -140,13 +139,17 @@ public class ReportService {
 
     private ReportResponse save(YearMonth month, long userId, GeneratedContent generatedContent) {
         LocalDate reportMonth = month.atDay(1);
-        if (reportRepository.findByUserIdAndReportMonth(userId, reportMonth).isPresent()) {
-            throw new ApiException(ErrorCode.REPORT_ALREADY_EXISTS);
-        }
+        requireReportDoesNotExist(userId, reportMonth);
         return toResponse(reportRepository.saveAndFlush(new Report(
                 generatedContent.content(),
                 month,
                 userId)));
+    }
+
+    private void requireReportDoesNotExist(long userId, LocalDate reportMonth) {
+        if (reportRepository.existsByUserIdAndReportMonth(userId, reportMonth)) {
+            throw new ApiException(ErrorCode.REPORT_ALREADY_EXISTS);
+        }
     }
 
     private void requirePastMonth(YearMonth month) {

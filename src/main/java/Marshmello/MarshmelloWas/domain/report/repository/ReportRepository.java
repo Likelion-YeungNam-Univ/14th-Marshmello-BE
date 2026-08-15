@@ -8,5 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ReportRepository extends JpaRepository<Report, Long> {
 
+    boolean existsByUserIdAndReportMonth(Long userId, LocalDate reportMonth);
+
     Optional<Report> findByUserIdAndReportMonth(Long userId, LocalDate reportMonth);
 }
