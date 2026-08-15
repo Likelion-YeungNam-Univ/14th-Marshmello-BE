@@ -13,6 +13,8 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     Optional<CheckIn> findByCheckInIdAndUserId(Long checkInId, Long userId);
 
+    boolean existsByUserIdAndCheckInDate(Long userId, LocalDate checkInDate);
+
     Page<CheckIn> findByUserId(Long userId, Pageable pageable);
 
     List<CheckIn> findByUserIdAndCheckInDateBetweenOrderByCheckInDateAscCheckInIdAsc(

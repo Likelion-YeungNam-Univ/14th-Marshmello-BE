@@ -30,8 +30,8 @@ public class BodyDiary {
     protected BodyDiary() {
     }
 
-    public BodyDiary(BodyDiaryId bodyDiaryId, CheckIn checkIn, Boolean stretchMark, String comment) {
-        this.bodyDiaryId = bodyDiaryId;
+    public BodyDiary(BodyRegion bodyRegion, CheckIn checkIn, Boolean stretchMark, String comment) {
+        this.bodyDiaryId = new BodyDiaryId(bodyRegion.code(), checkIn.id());
         this.checkIn = checkIn;
         this.stretchMark = stretchMark;
         this.comment = comment;

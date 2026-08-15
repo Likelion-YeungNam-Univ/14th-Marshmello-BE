@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Entity
 @Table(name = "check_in")
@@ -40,11 +41,14 @@ public class CheckIn {
     }
 
     public CheckIn(boolean achieved, LocalDate checkInDate, String diary, short emotion, Long userId) {
+        if (emotion < 1 || emotion > 4) {
+            throw new IllegalArgumentException("Emotion must be between 1 and 4");
+        }
         this.achieved = achieved;
-        this.checkInDate = checkInDate;
+        this.checkInDate = Objects.requireNonNull(checkInDate);
         this.diary = diary;
         this.emotion = emotion;
-        this.userId = userId;
+        this.userId = Objects.requireNonNull(userId);
     }
 
     public Long id() {
