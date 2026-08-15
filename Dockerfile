@@ -52,6 +52,11 @@ LABEL BUILD_ID="${BUILD_ID}" \
 WORKDIR /app
 COPY --from=builder --chown=10001:10001 /opt/app/app.jar /app/app.jar
 COPY --from=builder --chown=10001:10001 /opt/probe/Http200Probe.class /app/healthcheck/Http200Probe.class
+RUN mkdir -p /opt/onnx-tmp \
+    && chown 10001:10001 /opt/onnx-tmp \
+    && chmod 0700 /opt/onnx-tmp
+
+ENV JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=/opt/onnx-tmp"
 
 USER 10001:10001
 EXPOSE 8080

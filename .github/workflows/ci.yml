@@ -100,6 +100,43 @@ jobs:
 
           docker compose -p "$PROJECT_NAME" -f compose.yaml up -d --wait --no-build
 
+          readonly APP_CONTAINER_ID="$(
+            docker compose -p "$PROJECT_NAME" -f compose.yaml ps -q app
+          )"
+          [[ "$APP_CONTAINER_ID" =~ ^[0-9a-f]{64}$ ]]
+
+          readonly DEFAULT_TMPFS_OPTIONS="$(
+            docker inspect --format '{{ index .HostConfig.Tmpfs "/tmp" }}' "$APP_CONTAINER_ID"
+          )"
+          [[ ",$DEFAULT_TMPFS_OPTIONS," == *,noexec,* ]]
+          [[ ",$DEFAULT_TMPFS_OPTIONS," == *,nosuid,* ]]
+          [[ ",$DEFAULT_TMPFS_OPTIONS," == *,nodev,* ]]
+
+          readonly ONNX_TMPFS_OPTIONS="$(
+            docker inspect --format '{{ index .HostConfig.Tmpfs "/opt/onnx-tmp" }}' "$APP_CONTAINER_ID"
+          )"
+          [[ ",$ONNX_TMPFS_OPTIONS," == *,exec,* ]]
+          [[ ",$ONNX_TMPFS_OPTIONS," == *,nosuid,* ]]
+          [[ ",$ONNX_TMPFS_OPTIONS," == *,nodev,* ]]
+          [[ ",$ONNX_TMPFS_OPTIONS," == *,uid=${APP_UID},* ]]
+          [[ ",$ONNX_TMPFS_OPTIONS," == *,gid=${APP_GID},* ]]
+
+          readonly JVM_TMPDIR="$(
+            docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app \
+              java -XshowSettings:properties -version 2>&1 \
+              | awk -F'= ' '$1 ~ /java.io.tmpdir/ {print $2}'
+          )"
+          [[ "$JVM_TMPDIR" == "/opt/onnx-tmp" ]]
+
+          docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app sh -s <<'ONNX_EXEC_PROBE'
+          set -eu
+          probe=/opt/onnx-tmp/.exec-probe
+          trap 'rm -f "$probe"' EXIT
+          printf '#!/bin/sh\nexit 0\n' > "$probe"
+          chmod 700 "$probe"
+          "$probe"
+          ONNX_EXEC_PROBE
+
           readonly HTTP_CODE="$(
             curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
               --max-time 10 "http://127.0.0.1:${APP_PORT}/actuator/health"
