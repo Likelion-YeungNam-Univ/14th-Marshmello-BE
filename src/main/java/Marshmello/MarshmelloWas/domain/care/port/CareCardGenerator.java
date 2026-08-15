@@ -12,8 +12,11 @@ public interface CareCardGenerator {
         public CareCardGeneratedText {
             actionName = normalized(actionName, "actionName");
             actionReason = normalized(actionReason, "actionReason");
-            if (actionName.length() > 50) {
-                throw new IllegalArgumentException("actionName must not exceed 50 characters");
+            if (actionName.length() > 30) {
+                throw new IllegalArgumentException("actionName must not exceed 30 characters");
+            }
+            if (actionReason.length() > 100) {
+                throw new IllegalArgumentException("actionReason must not exceed 100 characters");
             }
         }
 
