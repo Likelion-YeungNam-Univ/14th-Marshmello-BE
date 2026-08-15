@@ -128,8 +128,9 @@ jobs:
           readonly JVM_TMPDIR="$(
             docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app \
               java -XshowSettings:properties -version 2>&1 \
-              | awk -F'= ' '$1 ~ /java.io.tmpdir/ {print $2}'
+              | awk -F'= ' '$1 ~ /^[[:space:]]*java\.io\.tmpdir[[:space:]]*$/ {print $2; exit}'
           )"
+          printf 'java.io.tmpdir=%s\n' "$JVM_TMPDIR"
           [[ "$JVM_TMPDIR" == "/opt/onnx-tmp" ]]
 
           docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app sh -s <<'ONNX_EXEC_PROBE'
