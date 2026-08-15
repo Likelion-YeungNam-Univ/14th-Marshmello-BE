@@ -9,15 +9,16 @@ public interface ReportGenerator {
 
     record GeneratedContent(String content) {
 
-        private static final int MAX_CONTENT_LENGTH = 8_000;
+        private static final int MIN_CONTENT_LENGTH = 60;
+        private static final int MAX_CONTENT_LENGTH = 70;
 
         public GeneratedContent {
             content = Objects.requireNonNull(content, "content").trim();
-            if (content.isEmpty()) {
-                throw new IllegalArgumentException("content must not be blank");
+            if (content.length() < MIN_CONTENT_LENGTH) {
+                throw new IllegalArgumentException("content must be at least 60 characters");
             }
             if (content.length() > MAX_CONTENT_LENGTH) {
-                throw new IllegalArgumentException("content must not exceed 8000 characters");
+                throw new IllegalArgumentException("content must not exceed 70 characters");
             }
         }
     }
