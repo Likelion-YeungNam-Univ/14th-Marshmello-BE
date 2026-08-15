@@ -8,7 +8,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import jakarta.persistence.LockModeType;
 
 public interface ImageRepository extends JpaRepository<Image, Long> {
 
@@ -31,4 +33,10 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
             where image.checkIn.checkInId in :checkInIds
             """)
     List<CheckInImageReference> findReferencesByCheckInCheckInIdIn(Collection<Long> checkInIds);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select image from Image image where image.imageId = :imageId")
+    Optional<Image> findByIdForUpdate(Long imageId);
+
+    Optional<Image> findByImageIdAndUserIdAndCheckInIsNotNull(Long imageId, Long userId);
 }

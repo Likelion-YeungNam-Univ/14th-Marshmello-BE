@@ -30,26 +30,26 @@ public class BodyDiary {
     protected BodyDiary() {
     }
 
-    public BodyDiary(BodyDiaryId bodyDiaryId, CheckIn checkIn, Boolean stretchMark, String comment) {
-        this.bodyDiaryId = bodyDiaryId;
+    public BodyDiary(BodyRegion bodyRegion, CheckIn checkIn, Boolean stretchMark, String comment) {
+        this.bodyDiaryId = new BodyDiaryId(bodyRegion.code(), checkIn.id());
         this.checkIn = checkIn;
         this.stretchMark = stretchMark;
         this.comment = comment;
     }
 
-    public BodyDiaryId getBodyDiaryId() {
+    public short bodyRegion() {
+        return bodyDiaryId.bodyRegion();
+    }
+
+    public BodyDiaryId id() {
         return bodyDiaryId;
     }
 
-    public CheckIn getCheckIn() {
-        return checkIn;
-    }
-
-    public Boolean getStretchMark() {
+    public Boolean stretchMark() {
         return stretchMark;
     }
 
-    public String getComment() {
+    public String comment() {
         return comment;
     }
 }

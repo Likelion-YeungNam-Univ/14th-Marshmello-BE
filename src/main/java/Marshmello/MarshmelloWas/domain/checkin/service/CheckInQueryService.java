@@ -1,156 +1,64 @@
 package Marshmello.MarshmelloWas.domain.checkin.service;
 
-import Marshmello.MarshmelloWas.domain.analysis.entity.ImageAnalysis;
-import Marshmello.MarshmelloWas.domain.analysis.repository.ImageAnalysisRepository;
-import Marshmello.MarshmelloWas.domain.checkin.entity.BodyDiary;
-import Marshmello.MarshmelloWas.domain.checkin.repository.BodyDiaryRepository;
-import Marshmello.MarshmelloWas.domain.checkin.dto.BodyDiaryView;
-import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInImageReference;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInPage;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInPageRequest;
+import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
+import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
+import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage;
+import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage.ImageReadUrl;
 import Marshmello.MarshmelloWas.domain.checkin.repository.CheckInRepository;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryView;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInTrendView;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInView;
 import Marshmello.MarshmelloWas.domain.checkin.repository.ImageRepository;
+import Marshmello.MarshmelloWas.global.exception.ApiException;
+import Marshmello.MarshmelloWas.global.exception.ErrorCode;
 import java.time.LocalDate;
-import java.util.Collection;
+import java.time.YearMonth;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CheckInQueryService {
 
+    private final CurrentUserIdProvider currentUserIdProvider;
     private final CheckInRepository checkInRepository;
     private final ImageRepository imageRepository;
-    private final BodyDiaryRepository bodyDiaryRepository;
-    private final ImageAnalysisRepository imageAnalysisRepository;
+    private final ImageStorage imageStorage;
 
     public CheckInQueryService(
+            CurrentUserIdProvider currentUserIdProvider,
             CheckInRepository checkInRepository,
             ImageRepository imageRepository,
-            BodyDiaryRepository bodyDiaryRepository,
-            ImageAnalysisRepository imageAnalysisRepository
+            ImageStorage imageStorage
     ) {
+        this.currentUserIdProvider = currentUserIdProvider;
         this.checkInRepository = checkInRepository;
         this.imageRepository = imageRepository;
-        this.bodyDiaryRepository = bodyDiaryRepository;
-        this.imageAnalysisRepository = imageAnalysisRepository;
+        this.imageStorage = imageStorage;
     }
 
     @Transactional(readOnly = true)
-    public Optional<CheckInView> findOwnedById(long checkInId, long userId) {
-        return checkInRepository.findByCheckInIdAndUserId(checkInId, userId)
-                .map(this::toView);
+    public List<CheckInSummaryResponse> getByDate(LocalDate date) {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        return checkInRepository.findSummariesByUserIdAndDate(userId, date);
     }
 
     @Transactional(readOnly = true)
-    public CheckInPage<CheckInSummaryView> findPageByUserId(long userId, CheckInPageRequest pageRequest) {
-        Pageable fixedOrder = PageRequest.of(
-                pageRequest.page(),
-                pageRequest.size(),
-                Sort.by(Sort.Order.desc("checkInDate"), Sort.Order.desc("checkInId"))
-        );
-        Page<CheckIn> checkIns = checkInRepository.findByUserId(userId, fixedOrder);
-        Map<Long, Short> scores = scoresByCheckInId(checkIns.getContent().stream()
-                .map(CheckIn::getCheckInId)
-                .toList());
-        List<CheckInSummaryView> content = checkIns.getContent().stream()
-                .map(checkIn -> new CheckInSummaryView(
-                        checkIn.getCheckInId(),
-                        checkIn.isAchieved(),
-                        checkIn.getCheckInDate(),
-                        requiredScore(scores, checkIn.getCheckInId())
-                ))
-                .toList();
-        return new CheckInPage<>(content, checkIns.getTotalElements(), checkIns.getTotalPages());
+    public List<CheckInEmotionResponse> getEmotionsByMonth(YearMonth month) {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        LocalDate periodStart = month.atDay(1);
+        LocalDate periodEnd = month.plusMonths(1).atDay(1);
+        return checkInRepository.findEmotionsByUserIdAndPeriod(userId, periodStart, periodEnd);
     }
 
-    @Transactional(readOnly = true)
-    public List<CheckInTrendView> findTrendsByUserIdBetween(long userId, LocalDate periodStart, LocalDate periodEnd) {
-        List<CheckIn> checkIns = checkInRepository.findByUserIdAndCheckInDateBetweenOrderByCheckInDateAscCheckInIdAsc(
-                userId,
-                periodStart,
-                periodEnd
-        );
-        Map<Long, Short> scores = scoresByCheckInId(checkIns.stream().map(CheckIn::getCheckInId).toList());
-        return checkIns.stream()
-                .map(checkIn -> new CheckInTrendView(
-                        checkIn.getCheckInDate(),
-                        requiredScore(scores, checkIn.getCheckInId()),
-                        checkIn.isAchieved()
-                ))
-                .toList();
-    }
-
-    private CheckInView toView(CheckIn checkIn) {
-        Long imageId = imageIdsByCheckInId(List.of(checkIn.getCheckInId())).get(checkIn.getCheckInId());
-        if (imageId == null) {
-            throw new IllegalStateException("Check-in image is missing");
+    public ImageUrlResponse createImageUrl(long imageId) {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        Image image = imageRepository.findByImageIdAndUserIdAndCheckInIsNotNull(imageId, userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.IMAGE_NOT_FOUND));
+        if (image.objectKey() == null) {
+            throw new ApiException(ErrorCode.IMAGE_STORAGE_UNAVAILABLE);
         }
-        ImageAnalysis analysis = imageAnalysisRepository.findById(imageId)
-                .orElseThrow(() -> new IllegalStateException("Image analysis is missing"));
-        List<BodyDiaryView> bodyDiaries = bodyDiaryRepository
-                .findByBodyDiaryIdCheckInIdInOrderByBodyDiaryIdBodyRegionAsc(List.of(checkIn.getCheckInId()))
-                .stream()
-                .map(bodyDiary -> new BodyDiaryView(
-                        bodyDiary.getBodyDiaryId().getBodyRegion(),
-                        bodyDiary.getStretchMark(),
-                        bodyDiary.getComment()
-                ))
-                .toList();
-        return new CheckInView(
-                checkIn.getCheckInId(),
-                checkIn.isAchieved(),
-                checkIn.getCheckInDate(),
-                checkIn.getDiary(),
-                checkIn.getEmotion(),
-                analysis.getScore(),
-                bodyDiaries
-        );
-    }
-
-    private Map<Long, Short> scoresByCheckInId(Collection<Long> checkInIds) {
-        Map<Long, Long> imageIdsByCheckInId = imageIdsByCheckInId(checkInIds);
-        Map<Long, ImageAnalysis> analysesByImageId = imageAnalysisRepository.findByImageIdIn(imageIdsByCheckInId.values())
-                .stream()
-                .collect(Collectors.toMap(ImageAnalysis::getImageId, Function.identity()));
-        return imageIdsByCheckInId.entrySet().stream().collect(Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> requiredAnalysis(analysesByImageId, entry.getValue()).getScore()
-        ));
-    }
-
-    private ImageAnalysis requiredAnalysis(Map<Long, ImageAnalysis> analysesByImageId, Long imageId) {
-        ImageAnalysis analysis = analysesByImageId.get(imageId);
-        if (analysis == null) {
-            throw new IllegalStateException("Check-in analysis is missing");
-        }
-        return analysis;
-    }
-
-    private Map<Long, Long> imageIdsByCheckInId(Collection<Long> checkInIds) {
-        return imageRepository.findReferencesByCheckInCheckInIdIn(checkInIds).stream().collect(Collectors.toMap(
-                CheckInImageReference::checkInId,
-                CheckInImageReference::imageId
-        ));
-    }
-
-    private short requiredScore(Map<Long, Short> scores, Long checkInId) {
-        Short score = scores.get(checkInId);
-        if (score == null) {
-            throw new IllegalStateException("Check-in analysis is missing");
-        }
-        return score;
+        ImageReadUrl readUrl = imageStorage.createReadUrl(image.objectKey());
+        return new ImageUrlResponse(image.id(), readUrl.url(), readUrl.expiresAt());
     }
 }

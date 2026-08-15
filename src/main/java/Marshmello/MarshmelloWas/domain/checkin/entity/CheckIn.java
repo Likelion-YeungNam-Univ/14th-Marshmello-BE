@@ -5,8 +5,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Entity
 @Table(name = "check_in")
@@ -32,38 +34,55 @@ public class CheckIn {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @OneToOne(mappedBy = "checkIn", fetch = jakarta.persistence.FetchType.LAZY)
+    private Image image;
+
     protected CheckIn() {
     }
 
     public CheckIn(boolean achieved, LocalDate checkInDate, String diary, short emotion, Long userId) {
+        if (emotion < 1 || emotion > 4) {
+            throw new IllegalArgumentException("Emotion must be between 1 and 4");
+        }
         this.achieved = achieved;
-        this.checkInDate = checkInDate;
+        this.checkInDate = Objects.requireNonNull(checkInDate);
         this.diary = diary;
         this.emotion = emotion;
-        this.userId = userId;
+        this.userId = Objects.requireNonNull(userId);
     }
 
-    public Long getCheckInId() {
+    public Long id() {
         return checkInId;
     }
 
-    public boolean isAchieved() {
+    public boolean achieved() {
         return achieved;
     }
 
-    public LocalDate getCheckInDate() {
+    public LocalDate date() {
         return checkInDate;
     }
 
-    public String getDiary() {
+    public String diary() {
         return diary;
     }
 
-    public short getEmotion() {
+    public short emotion() {
         return emotion;
     }
 
-    public Long getUserId() {
+    public Long userId() {
         return userId;
+    }
+
+    public Long imageId() {
+        return image == null ? null : image.id();
+    }
+
+    void attachImage(Image image) {
+        if (this.image != null && this.image != image) {
+            throw new IllegalStateException("Check-in already has an image");
+        }
+        this.image = image;
     }
 }

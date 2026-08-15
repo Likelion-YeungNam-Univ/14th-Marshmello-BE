@@ -42,7 +42,8 @@ services:
     user: "${APP_UID:?APP_UID is required}:${APP_GID:?APP_GID is required}"
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+      - /opt/onnx-tmp:rw,exec,nosuid,nodev,size=64m,mode=0700,uid=${APP_UID:?APP_UID is required},gid=${APP_GID:?APP_GID is required}
     cap_drop:
       - ALL
     security_opt:
