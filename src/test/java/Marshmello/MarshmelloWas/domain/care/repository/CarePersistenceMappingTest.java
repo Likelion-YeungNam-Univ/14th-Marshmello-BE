@@ -90,7 +90,7 @@ class CarePersistenceMappingTest {
                 "행동 이름",
                 "행동 이유",
                 action.getSource(),
-                checkIn.getCheckInId(),
+                checkIn.id(),
                 action,
                 createdDate
         ));

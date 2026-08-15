@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 
@@ -32,6 +33,9 @@ public class CheckIn {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @OneToOne(mappedBy = "checkIn", fetch = jakarta.persistence.FetchType.LAZY)
+    private Image image;
+
     protected CheckIn() {
     }
 
@@ -43,27 +47,38 @@ public class CheckIn {
         this.userId = userId;
     }
 
-    public Long getCheckInId() {
+    public Long id() {
         return checkInId;
     }
 
-    public boolean isAchieved() {
+    public boolean achieved() {
         return achieved;
     }
 
-    public LocalDate getCheckInDate() {
+    public LocalDate date() {
         return checkInDate;
     }
 
-    public String getDiary() {
+    public String diary() {
         return diary;
     }
 
-    public short getEmotion() {
+    public short emotion() {
         return emotion;
     }
 
-    public Long getUserId() {
+    public Long userId() {
         return userId;
+    }
+
+    public Long imageId() {
+        return image == null ? null : image.id();
+    }
+
+    void attachImage(Image image) {
+        if (this.image != null && this.image != image) {
+            throw new IllegalStateException("Check-in already has an image");
+        }
+        this.image = image;
     }
 }

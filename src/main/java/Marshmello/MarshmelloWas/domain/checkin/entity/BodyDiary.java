@@ -37,19 +37,19 @@ public class BodyDiary {
         this.comment = comment;
     }
 
-    public BodyDiaryId getBodyDiaryId() {
+    public short bodyRegion() {
+        return bodyDiaryId.bodyRegion();
+    }
+
+    public BodyDiaryId id() {
         return bodyDiaryId;
     }
 
-    public CheckIn getCheckIn() {
-        return checkIn;
-    }
-
-    public Boolean getStretchMark() {
+    public Boolean stretchMark() {
         return stretchMark;
     }
 
-    public String getComment() {
+    public String comment() {
         return comment;
     }
 }

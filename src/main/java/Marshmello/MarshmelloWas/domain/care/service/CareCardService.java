@@ -134,7 +134,7 @@ public class CareCardService {
                 .orElseThrow(this::actionInvariantViolation);
         ImageAnalysis analysis = imageAnalysisRepository.findById(image.imageId())
                 .orElseThrow(this::actionInvariantViolation);
-        List<Action> actions = actionRepository.findByActionScoreOrderByActionIdAsc(analysis.getScore());
+        List<Action> actions = actionRepository.findByActionScoreOrderByActionIdAsc(analysis.score());
         if (actions.isEmpty()) {
             throw actionInvariantViolation();
         }

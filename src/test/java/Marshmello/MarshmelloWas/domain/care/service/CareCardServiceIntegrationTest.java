@@ -116,8 +116,8 @@ class CareCardServiceIntegrationTest {
             return new CareCardGeneratedText("진료 필요 신호 확인", "위험 증상을 확인하고 진료를 안내합니다.");
         });
 
-        CareCardCreationResult created = careCardService.create(checkIn.getCheckInId());
-        CareCardCreationResult existing = careCardService.create(checkIn.getCheckInId());
+        CareCardCreationResult created = careCardService.create(checkIn.id());
+        CareCardCreationResult existing = careCardService.create(checkIn.id());
 
         assertThat(created.created()).isTrue();
         assertThat(created.careCard().category()).isEqualTo(expectedAction.getCategory());
@@ -134,7 +134,7 @@ class CareCardServiceIntegrationTest {
     void overwritesCurrentUsersFeedbackForTheGeneratedAction() {
         CheckIn checkIn = saveCheckInContext((short) 8);
         when(generator.generate(any())).thenReturn(new CareCardGeneratedText("행동", "이유"));
-        CareCardCreationResult result = careCardService.create(checkIn.getCheckInId());
+        CareCardCreationResult result = careCardService.create(checkIn.id());
         Long actionId = careCardRepository.findById(result.careCard().careCardId())
                 .orElseThrow()
                 .getAction()
@@ -154,7 +154,7 @@ class CareCardServiceIntegrationTest {
         CheckIn checkIn = saveCheckInContext((short) 8);
         currentUserId.set(userRepository.save(new User("other", null)).getUserId());
 
-        assertThatThrownBy(() -> careCardService.create(checkIn.getCheckInId()))
+        assertThatThrownBy(() -> careCardService.create(checkIn.id()))
                 .isInstanceOfSatisfying(ApiException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.CHECK_IN_NOT_FOUND));
         verifyNoInteractions(generator);
@@ -164,7 +164,7 @@ class CareCardServiceIntegrationTest {
     void rejectsAnotherUsersFeedback() {
         CheckIn checkIn = saveCheckInContext((short) 8);
         when(generator.generate(any())).thenReturn(new CareCardGeneratedText("행동", "이유"));
-        CareCardCreationResult result = careCardService.create(checkIn.getCheckInId());
+        CareCardCreationResult result = careCardService.create(checkIn.id());
         currentUserId.set(userRepository.save(new User("other", null)).getUserId());
 
         assertThatThrownBy(() -> careCardService.updateFeedback(result.careCard().careCardId(), (short) 5))
@@ -179,7 +179,7 @@ class CareCardServiceIntegrationTest {
         when(generator.generate(any())).thenThrow(new CareCardGenerationException(
                 CareCardGenerationException.Reason.TIMEOUT));
 
-        assertThatThrownBy(() -> careCardService.create(checkIn.getCheckInId()))
+        assertThatThrownBy(() -> careCardService.create(checkIn.id()))
                 .isInstanceOfSatisfying(ApiException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.AI_GENERATION_TIMEOUT));
         assertThat(careCardRepository.count()).isZero();
@@ -194,8 +194,10 @@ class CareCardServiceIntegrationTest {
                 null,
                 (short) 1,
                 user.getUserId()));
-        Image image = imageRepository.save(new Image(new byte[]{1}, checkIn));
-        imageAnalysisRepository.save(new ImageAnalysis(image.getImageId(), analysisScore));
+        Image image = new Image(user.getUserId(), "test/care-image", "image/png", Instant.now());
+        image.attachTo(checkIn, user.getUserId());
+        imageRepository.save(image);
+        imageAnalysisRepository.save(new ImageAnalysis(image.id(), analysisScore));
         return checkIn;
     }
 }

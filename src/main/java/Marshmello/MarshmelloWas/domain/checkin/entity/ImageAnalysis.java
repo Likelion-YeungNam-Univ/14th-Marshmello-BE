@@ -24,11 +24,11 @@ public class ImageAnalysis {
         this.score = score;
     }
 
-    public Long getImageId() {
+    public Long imageId() {
         return imageId;
     }
 
-    public short getScore() {
+    public short score() {
         return score;
     }
 }

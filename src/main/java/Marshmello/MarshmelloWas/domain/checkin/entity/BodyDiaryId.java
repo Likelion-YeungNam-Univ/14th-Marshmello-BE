@@ -22,11 +22,11 @@ public class BodyDiaryId implements Serializable {
         this.checkInId = checkInId;
     }
 
-    public short getBodyRegion() {
+    public short bodyRegion() {
         return bodyRegion;
     }
 
-    public Long getCheckInId() {
+    public Long checkInId() {
         return checkInId;
     }
 
