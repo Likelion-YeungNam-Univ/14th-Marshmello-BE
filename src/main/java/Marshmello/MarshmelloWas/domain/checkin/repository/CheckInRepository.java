@@ -2,6 +2,7 @@ package Marshmello.MarshmelloWas.domain.checkin.repository;
 
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -33,6 +34,23 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
               and checkIn.checkInDate = :date
             """)
     List<CheckInSummaryResponse> findSummariesByUserIdAndDate(Long userId, LocalDate date);
+
+    @Query("""
+            select new Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse(
+                checkIn.checkInDate,
+                checkIn.emotion
+            )
+            from CheckIn checkIn
+            where checkIn.userId = :userId
+              and checkIn.checkInDate >= :periodStart
+              and checkIn.checkInDate < :periodEnd
+            order by checkIn.checkInDate asc, checkIn.checkInId asc
+            """)
+    List<CheckInEmotionResponse> findEmotionsByUserIdAndPeriod(
+            Long userId,
+            LocalDate periodStart,
+            LocalDate periodEnd
+    );
 
     List<CheckIn> findByUserIdAndCheckInDateBetweenOrderByCheckInDateAscCheckInIdAsc(
             Long userId,

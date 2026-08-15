@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
@@ -24,6 +25,7 @@ import Marshmello.MarshmelloWas.global.exception.ErrorCode;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -93,6 +95,23 @@ class CheckInQueryServiceTest {
     }
 
     @Test
+    void returnsMonthlyEmotionsInCheckInDateOrder() {
+        User owner = userRepository.save(new User("emotion-owner", null));
+        User other = userRepository.save(new User("emotion-other", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 20), "test/emotion-late", (short) 4);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 2), "test/emotion-early", (short) 2);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 7, 31), "test/emotion-july", (short) 1);
+        saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 10), "test/emotion-other", (short) 3);
+
+        assertThat(service.getEmotionsByMonth(YearMonth.of(2026, 8)))
+                .containsExactly(
+                        new CheckInEmotionResponse(LocalDate.of(2026, 8, 2), (short) 2),
+                        new CheckInEmotionResponse(LocalDate.of(2026, 8, 20), (short) 4));
+        assertThat(service.getEmotionsByMonth(YearMonth.of(2026, 9))).isEmpty();
+    }
+
+    @Test
     void createsReadUrlOnlyForOwnedAttachedImage() {
         User owner = userRepository.save(new User("url-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
@@ -123,7 +142,11 @@ class CheckInQueryServiceTest {
     }
 
     private Image saveCheckIn(long userId, LocalDate date, String objectKey) {
-        CheckIn checkIn = checkInRepository.save(new CheckIn(false, date, null, (short) 1, userId));
+        return saveCheckIn(userId, date, objectKey, (short) 1);
+    }
+
+    private Image saveCheckIn(long userId, LocalDate date, String objectKey, short emotion) {
+        CheckIn checkIn = checkInRepository.save(new CheckIn(false, date, null, emotion, userId));
         Image image = new Image(userId, objectKey, "image/png", Instant.now());
         image.attachTo(checkIn, userId);
         imageRepository.save(image);

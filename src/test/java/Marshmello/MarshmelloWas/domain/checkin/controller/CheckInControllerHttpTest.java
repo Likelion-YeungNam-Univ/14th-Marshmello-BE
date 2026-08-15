@@ -11,11 +11,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -101,6 +103,34 @@ class CheckInControllerHttpTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/check-ins")
                         .queryParam("date", "15-08-2026")
+                        .with(oidcLogin()))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(checkInQueryService);
+    }
+
+    @Test
+    void returnsMonthlyEmotionsAsAnOrderedList() throws Exception {
+        when(checkInQueryService.getEmotionsByMonth(YearMonth.of(2026, 8)))
+                .thenReturn(List.of(
+                        new CheckInEmotionResponse(LocalDate.of(2026, 8, 2), (short) 2),
+                        new CheckInEmotionResponse(LocalDate.of(2026, 8, 20), (short) 4)));
+
+        mockMvc.perform(get("/api/check-ins/emotions")
+                        .queryParam("month", "2026-08")
+                        .with(oidcLogin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].date").value("2026-08-02"))
+                .andExpect(jsonPath("$[0].emotion").value(2))
+                .andExpect(jsonPath("$[1].date").value("2026-08-20"))
+                .andExpect(jsonPath("$[1].emotion").value(4));
+    }
+
+    @Test
+    void requiresAValidYearMonthForEmotionLookup() throws Exception {
+        mockMvc.perform(get("/api/check-ins/emotions").with(oidcLogin()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/check-ins/emotions")
+                        .queryParam("month", "2026-8")
                         .with(oidcLogin()))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(checkInQueryService);

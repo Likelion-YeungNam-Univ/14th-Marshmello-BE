@@ -2,6 +2,7 @@ package Marshmello.MarshmelloWas.domain.checkin.service;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage;
@@ -11,6 +12,7 @@ import Marshmello.MarshmelloWas.domain.checkin.repository.ImageRepository;
 import Marshmello.MarshmelloWas.global.exception.ApiException;
 import Marshmello.MarshmelloWas.global.exception.ErrorCode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,14 @@ public class CheckInQueryService {
     public List<CheckInSummaryResponse> getByDate(LocalDate date) {
         long userId = currentUserIdProvider.requireCurrentUserId();
         return checkInRepository.findSummariesByUserIdAndDate(userId, date);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CheckInEmotionResponse> getEmotionsByMonth(YearMonth month) {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        LocalDate periodStart = month.atDay(1);
+        LocalDate periodEnd = month.plusMonths(1).atDay(1);
+        return checkInRepository.findEmotionsByUserIdAndPeriod(userId, periodStart, periodEnd);
     }
 
     public ImageUrlResponse createImageUrl(long imageId) {

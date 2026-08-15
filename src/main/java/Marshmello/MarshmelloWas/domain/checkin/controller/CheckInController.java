@@ -1,12 +1,14 @@
 package Marshmello.MarshmelloWas.domain.checkin.controller;
 
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @RestController
 @RequestMapping("/api/check-ins")
@@ -41,5 +44,12 @@ public class CheckInController {
             @RequestParam LocalDate date
     ) {
         return checkInQueryService.getByDate(date);
+    }
+
+    @GetMapping("/emotions")
+    public List<CheckInEmotionResponse> getEmotionsByMonth(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
+    ) {
+        return checkInQueryService.getEmotionsByMonth(month);
     }
 }
