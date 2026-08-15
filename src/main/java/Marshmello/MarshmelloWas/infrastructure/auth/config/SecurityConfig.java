@@ -73,7 +73,7 @@ public class SecurityConfig {
                     .authorizationRequestRepository(authorizationRequestRepository)
                     .authorizationRequestResolver(authorizationRequestResolver)
                 )
-                .defaultSuccessUrl("/", true)
+                .defaultSuccessUrl("http://localhost:5173", true)
             )
             .oauth2Client(client -> client
                 .authorizedClientRepository(authorizedClientRepository)
