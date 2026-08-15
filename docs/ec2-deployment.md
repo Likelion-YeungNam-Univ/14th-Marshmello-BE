@@ -67,6 +67,8 @@ export POSTGRES_PASSWORD_FILE=/opt/marshmello-was/secrets/postgres_password
 export APP_PORT=8080
 export POSTGRES_DB='<database-name>'
 export POSTGRES_USER='<database-user>'
+export AWS_REGION='ap-northeast-2'
+export AWS_S3_BUCKET='<bucket-name>'
 export COMPOSE_SOURCE='<path-to-compose.yaml>'
 export DEPLOY_SCRIPT_SOURCE='<path-to-deploy-ec2.sh>'
 
@@ -85,8 +87,11 @@ lowercase hexadecimal characters; `APP_IMAGE` is required and must match
 fixed to the digest shown above; `DEPLOY_ROOT` defaults to
 `/opt/marshmello-was`; `POSTGRES_PASSWORD_FILE` defaults to
 `/opt/marshmello-was/secrets/postgres_password`; and `APP_PORT` defaults to
-`8080` and must be an integer from 1 through 65535. `POSTGRES_DB` and
-`POSTGRES_USER` are required by `compose.yaml` and have no script defaults.
+`8080` and must be an integer from 1 through 65535. `POSTGRES_DB`,
+`POSTGRES_USER`, `AWS_REGION`, and `AWS_S3_BUCKET` are required by
+`compose.yaml` and have no script defaults.
+The app container disables IMDSv1 and relies on the EC2 instance role through
+IMDSv2; do not add long-lived AWS access keys to the environment.
 The script must run as the non-root deploy user. It exports that user's UID and
 GID as `APP_UID` and `APP_GID`, allowing the non-root app container to read the
 deploy-user-owned `0600` PostgreSQL password file. It also exports
@@ -165,7 +170,8 @@ contract above through the protected `production` environment.
 
 Configure these production environment values before merging to `develop`:
 
-* Variables: `GHCR_IMAGE`, `APP_PORT`, `POSTGRES_DB`, `POSTGRES_USER`.
+* Variables: `GHCR_IMAGE`, `APP_PORT`, `POSTGRES_DB`, `POSTGRES_USER`,
+  `AWS_REGION`, `AWS_S3_BUCKET`.
 * Secrets: `EC2_HOST`, `EC2_USER`, `EC2_SSH_PRIVATE_KEY`,
   `EC2_KNOWN_HOSTS`.
 

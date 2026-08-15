@@ -207,6 +207,8 @@ DEPLOY_UID="$(id -u)"
 DEPLOY_GID="$(id -g)"
 OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-}"
 OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
+AWS_REGION="${AWS_REGION:-}"
+AWS_S3_BUCKET="${AWS_S3_BUCKET:-}"
 
 [[ "$DEPLOY_UID" != 0 ]] || die 2 'deployment must run as a non-root deploy user'
 APP_UID="$DEPLOY_UID"
@@ -218,6 +220,8 @@ is_release_id "$RELEASE_ID" || die 2 'RELEASE_ID must be exactly 40 lowercase he
 is_app_image "$APP_IMAGE" || die 2 'APP_IMAGE must be an immutable lowercase ghcr.io owner/repo sha256 digest reference'
 [[ -n "$OIDC_CLIENT_ID" ]] || die 2 'OIDC_CLIENT_ID is required'
 [[ -n "$OIDC_CLIENT_SECRET" ]] || die 2 'OIDC_CLIENT_SECRET is required'
+[[ "$AWS_REGION" =~ ^[a-z0-9-]+$ ]] || die 2 'AWS_REGION must contain only lowercase letters, digits, and hyphens'
+[[ "$AWS_S3_BUCKET" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]] || die 2 'AWS_S3_BUCKET must be a valid lowercase S3 bucket name'
 [[ "$POSTGRES_IMAGE" == "$EXPECTED_POSTGRES_IMAGE" ]] || die 2 'POSTGRES_IMAGE does not match the fixed deployment digest'
 is_port "$APP_PORT" || die 2 'APP_PORT must be an integer from 1 through 65535'
 [[ "$DEPLOY_ROOT" == /* ]] || die 2 'DEPLOY_ROOT must be absolute'
@@ -286,7 +290,7 @@ elif [[ -e "$PREVIOUS_STATE" ]]; then
 fi
 
 export APP_IMAGE POSTGRES_IMAGE POSTGRES_PASSWORD_FILE APP_PORT APP_UID APP_GID
-export OIDC_CLIENT_ID OIDC_CLIENT_SECRET
+export OIDC_CLIENT_ID OIDC_CLIENT_SECRET AWS_REGION AWS_S3_BUCKET
 export BUILD_ID="$RELEASE_ID"
 
 compose "$NEW_BUNDLE_PATH" pull || die 20 'new release image pull failed'
