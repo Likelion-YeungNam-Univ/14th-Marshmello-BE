@@ -68,6 +68,8 @@ jobs:
           BUILD_ID: ${{ github.sha }}
           OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
           OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+          AWS_REGION: ap-northeast-2
+          AWS_S3_BUCKET: marshmello-ci
         run: |
           set -euo pipefail
 
