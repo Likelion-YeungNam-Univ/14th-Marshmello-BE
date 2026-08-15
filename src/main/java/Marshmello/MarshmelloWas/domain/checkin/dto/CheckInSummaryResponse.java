@@ -2,7 +2,7 @@ package Marshmello.MarshmelloWas.domain.checkin.dto;
 
 import java.time.LocalDate;
 
-public record CheckInTimelineItemResponse(
+public record CheckInSummaryResponse(
         long checkInId,
         long imageId,
         LocalDate checkInDate,

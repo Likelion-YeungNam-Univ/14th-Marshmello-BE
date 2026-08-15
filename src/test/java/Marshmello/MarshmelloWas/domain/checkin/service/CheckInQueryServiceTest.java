@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInTimelineItemResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
@@ -21,10 +21,10 @@ import Marshmello.MarshmelloWas.domain.user.entity.User;
 import Marshmello.MarshmelloWas.domain.user.repository.UserRepository;
 import Marshmello.MarshmelloWas.global.exception.ApiException;
 import Marshmello.MarshmelloWas.global.exception.ErrorCode;
-import Marshmello.MarshmelloWas.global.web.PageResponse;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,7 +68,7 @@ class CheckInQueryServiceTest {
     }
 
     @Test
-    void returnsCurrentUsersCheckInsNewestFirstWithImageIds() {
+    void returnsOnlyCurrentUsersCheckInForTheRequestedDate() {
         User owner = userRepository.save(new User("timeline-owner", null));
         User other = userRepository.save(new User("timeline-other", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
@@ -76,13 +76,20 @@ class CheckInQueryServiceTest {
         Image newest = saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 15), "test/new");
         saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 14), "test/other");
 
-        PageResponse<CheckInTimelineItemResponse> timeline = service.getTimeline(0, 1);
+        List<CheckInSummaryResponse> result = service.getByDate(LocalDate.of(2026, 8, 15));
 
-        assertThat(timeline.totalElements()).isEqualTo(2);
-        assertThat(timeline.totalPages()).isEqualTo(2);
-        assertThat(timeline.content()).singleElement()
-                .extracting(CheckInTimelineItemResponse::imageId)
+        assertThat(result).singleElement()
+                .extracting(CheckInSummaryResponse::imageId)
                 .isEqualTo(newest.id());
+    }
+
+    @Test
+    void returnsEmptyListWhenTheDateHasNoCheckIn() {
+        User owner = userRepository.save(new User("date-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 15), "test/date");
+
+        assertThat(service.getByDate(LocalDate.of(2026, 8, 14))).isEmpty();
     }
 
     @Test

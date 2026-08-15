@@ -12,10 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInTimelineItemResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
-import Marshmello.MarshmelloWas.global.web.PageResponse;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -83,17 +82,28 @@ class CheckInControllerHttpTest {
     }
 
     @Test
-    void returnsTimelineWithImageIds() throws Exception {
-        when(checkInQueryService.getTimeline(0, 20)).thenReturn(new PageResponse<>(
-                List.of(new CheckInTimelineItemResponse(
-                        10L, 20L, LocalDate.of(2026, 8, 15), true, (short) 2)),
-                0, 20, 1, 1));
+    void returnsCheckInsForTheRequestedDate() throws Exception {
+        LocalDate date = LocalDate.of(2026, 8, 15);
+        when(checkInQueryService.getByDate(date)).thenReturn(List.of(new CheckInSummaryResponse(
+                10L, 20L, date, true, (short) 2)));
 
-        mockMvc.perform(get("/api/check-ins").with(oidcLogin()))
+        mockMvc.perform(get("/api/check-ins")
+                        .queryParam("date", "2026-08-15")
+                        .with(oidcLogin()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].checkInId").value(10))
-                .andExpect(jsonPath("$.content[0].imageId").value(20))
-                .andExpect(jsonPath("$.totalElements").value(1));
+                .andExpect(jsonPath("$[0].checkInId").value(10))
+                .andExpect(jsonPath("$[0].imageId").value(20));
+    }
+
+    @Test
+    void requiresAValidIsoDateForCheckInLookup() throws Exception {
+        mockMvc.perform(get("/api/check-ins").with(oidcLogin()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/check-ins")
+                        .queryParam("date", "15-08-2026")
+                        .with(oidcLogin()))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(checkInQueryService);
     }
 
     @Test

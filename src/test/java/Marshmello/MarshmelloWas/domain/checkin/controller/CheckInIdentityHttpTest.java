@@ -118,10 +118,11 @@ class CheckInIdentityHttpTest {
                 .andExpect(jsonPath("$.checkInDate").value("2026-08-15"));
 
         mockMvc.perform(get("/api/check-ins")
+                        .queryParam("date", "2026-08-15")
                         .with(oidcLogin().idToken(token -> token.subject(SUBJECT))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].imageId").value(imageId.longValue()))
-                .andExpect(jsonPath("$.content[0].achieved").value(true));
+                .andExpect(jsonPath("$[0].imageId").value(imageId.longValue()))
+                .andExpect(jsonPath("$[0].achieved").value(true));
 
         mockMvc.perform(get("/api/check-ins/images/{imageId}/url", imageId.longValue())
                         .with(oidcLogin().idToken(token -> token.subject(SUBJECT))))

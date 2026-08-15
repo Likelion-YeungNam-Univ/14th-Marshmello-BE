@@ -1,7 +1,7 @@
 package Marshmello.MarshmelloWas.domain.checkin.service;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInTimelineItemResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage;
@@ -10,9 +10,8 @@ import Marshmello.MarshmelloWas.domain.checkin.repository.CheckInRepository;
 import Marshmello.MarshmelloWas.domain.checkin.repository.ImageRepository;
 import Marshmello.MarshmelloWas.global.exception.ApiException;
 import Marshmello.MarshmelloWas.global.exception.ErrorCode;
-import Marshmello.MarshmelloWas.global.web.PageResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import java.time.LocalDate;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,17 +36,9 @@ public class CheckInQueryService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<CheckInTimelineItemResponse> getTimeline(int page, int size) {
+    public List<CheckInSummaryResponse> getByDate(LocalDate date) {
         long userId = currentUserIdProvider.requireCurrentUserId();
-        Page<CheckInTimelineItemResponse> result = checkInRepository.findTimelineByUserId(
-                userId,
-                PageRequest.of(page, size));
-        return new PageResponse<>(
-                result.getContent(),
-                result.getNumber(),
-                result.getSize(),
-                result.getTotalElements(),
-                result.getTotalPages());
+        return checkInRepository.findSummariesByUserIdAndDate(userId, date);
     }
 
     public ImageUrlResponse createImageUrl(long imageId) {
