@@ -79,7 +79,7 @@ class ImageAnalysisServiceTest {
 
         ImageAnalysisResponse response = service.analyze(content, "image/png");
 
-        assertThat(response).isEqualTo(new ImageAnalysisResponse(false, null, null));
+        assertThat(response).isEqualTo(new ImageAnalysisResponse(false, null));
         assertThat(imageRepository.count()).isZero();
         assertThat(imageAnalysisRepository.count()).isZero();
         verifyNoInteractions(imageStorage);
@@ -97,7 +97,6 @@ class ImageAnalysisServiceTest {
         ImageAnalysisResponse response = service.analyze(content, "image/png");
 
         assertThat(response.detected()).isTrue();
-        assertThat(response.score()).isEqualTo((short) 6);
         assertThat(imageRepository.findById(response.imageId()).orElseThrow().objectKey())
                 .isEqualTo("users/1/check-in-images/image");
         assertThat(imageAnalysisRepository.findById(response.imageId()).orElseThrow().score())

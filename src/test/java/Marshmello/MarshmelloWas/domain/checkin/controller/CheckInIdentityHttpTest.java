@@ -94,7 +94,7 @@ class CheckInIdentityHttpTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.detected").value(true))
-                .andExpect(jsonPath("$.score").value(7))
+                .andExpect(jsonPath("$.score").doesNotExist())
                 .andReturn();
         Number imageId = JsonPath.read(analysis.getResponse().getContentAsString(), "$.imageId");
 

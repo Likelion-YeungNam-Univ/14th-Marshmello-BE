@@ -56,7 +56,7 @@ public class ImageAnalysisService {
         long userId = currentUserIdProvider.requireCurrentUserId();
         AnalysisResult result = analyzeImage(imageContent);
         if (!result.detected()) {
-            return new ImageAnalysisResponse(false, null, null);
+            return new ImageAnalysisResponse(false, null);
         }
 
         StoredImage storedImage = imageStorage.store(userId, imageContent, contentType);
@@ -96,7 +96,7 @@ public class ImageAnalysisService {
                 storedImage.contentType(),
                 Instant.now(clock)));
         imageAnalysisRepository.save(new ImageAnalysis(image.id(), score));
-        return new ImageAnalysisResponse(true, image.id(), score);
+        return new ImageAnalysisResponse(true, image.id());
     }
 
     private void deleteStoredImage(String objectKey, RuntimeException originalFailure) {

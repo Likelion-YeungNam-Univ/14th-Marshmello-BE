@@ -43,7 +43,7 @@ class CheckInImageControllerHttpTest {
         MockMultipartFile image = new MockMultipartFile(
                 "image", "body.png", "image/png", new byte[]{1, 2, 3});
         when(imageAnalysisService.analyze(any(byte[].class), eq("image/png")))
-                .thenReturn(new ImageAnalysisResponse(false, null, null));
+                .thenReturn(new ImageAnalysisResponse(false, null));
 
         mockMvc.perform(multipart("/api/check-ins/images/analyze")
                         .file(image)
@@ -52,6 +52,23 @@ class CheckInImageControllerHttpTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.detected").value(false))
                 .andExpect(jsonPath("$.imageId").doesNotExist())
+                .andExpect(jsonPath("$.score").doesNotExist());
+    }
+
+    @Test
+    void returnsOnlyDetectionAndImageIdWhenAnalysisSucceeds() throws Exception {
+        MockMultipartFile image = new MockMultipartFile(
+                "image", "body.png", "image/png", new byte[]{1, 2, 3});
+        when(imageAnalysisService.analyze(any(byte[].class), eq("image/png")))
+                .thenReturn(new ImageAnalysisResponse(true, 21L));
+
+        mockMvc.perform(multipart("/api/check-ins/images/analyze")
+                        .file(image)
+                        .with(oidcLogin())
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.detected").value(true))
+                .andExpect(jsonPath("$.imageId").value(21))
                 .andExpect(jsonPath("$.score").doesNotExist());
     }
 
