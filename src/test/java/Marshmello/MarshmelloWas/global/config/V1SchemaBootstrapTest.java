@@ -46,10 +46,17 @@ class V1SchemaBootstrapTest {
                         + "where table_schema = 'PUBLIC' and table_name = 'USERS' "
                         + "and column_name = 'PROFILE_COMPLETED'",
                 Boolean.class);
+        List<String> reportColumns = jdbcTemplate.queryForList(
+                "select column_name from information_schema.columns "
+                        + "where table_schema = 'PUBLIC' and table_name = 'REPORT'",
+                String.class);
 
         assertThat(tableNames).containsExactlyInAnyOrderElementsOf(EXPECTED_TABLES);
         assertThat(careCardColumns).contains("ACTION_NAME", "ACTION_REASON", "SOURCE", "CREATED_DATE");
         assertThat(nicknameLength).isEqualTo(15);
         assertThat(profileCompletedNullable).isFalse();
+        assertThat(reportColumns)
+                .contains("REPORT_MONTH")
+                .doesNotContain("PERIOD_START", "PERIOD_END");
     }
 }
