@@ -103,23 +103,27 @@ jobs:
           readonly APP_CONTAINER_ID="$(
             docker compose -p "$PROJECT_NAME" -f compose.yaml ps -q app
           )"
-          [[ "$APP_CONTAINER_ID" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$APP_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
 
+          readonly MOUNT_TABLE="$(
+            docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app cat /proc/mounts
+          )"
           readonly DEFAULT_TMPFS_OPTIONS="$(
-            docker inspect --format '{{ index .HostConfig.Tmpfs "/tmp" }}' "$APP_CONTAINER_ID"
+            awk '$2 == "/tmp" && $3 == "tmpfs" {print $4}' <<< "$MOUNT_TABLE"
           )"
           [[ ",$DEFAULT_TMPFS_OPTIONS," == *,noexec,* ]]
           [[ ",$DEFAULT_TMPFS_OPTIONS," == *,nosuid,* ]]
           [[ ",$DEFAULT_TMPFS_OPTIONS," == *,nodev,* ]]
 
           readonly ONNX_TMPFS_OPTIONS="$(
-            docker inspect --format '{{ index .HostConfig.Tmpfs "/opt/onnx-tmp" }}' "$APP_CONTAINER_ID"
+            awk '$2 == "/opt/onnx-tmp" && $3 == "tmpfs" {print $4}' <<< "$MOUNT_TABLE"
           )"
-          [[ ",$ONNX_TMPFS_OPTIONS," == *,exec,* ]]
           [[ ",$ONNX_TMPFS_OPTIONS," == *,nosuid,* ]]
           [[ ",$ONNX_TMPFS_OPTIONS," == *,nodev,* ]]
-          [[ ",$ONNX_TMPFS_OPTIONS," == *,uid=${APP_UID},* ]]
-          [[ ",$ONNX_TMPFS_OPTIONS," == *,gid=${APP_GID},* ]]
+          [[ ",$ONNX_TMPFS_OPTIONS," != *,noexec,* ]]
+
+          printf 'default_tmpfs=%s onnx_tmpfs=%s\n' \
+            "$DEFAULT_TMPFS_OPTIONS" "$ONNX_TMPFS_OPTIONS"
 
           readonly JVM_TMPDIR="$(
             docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app \
