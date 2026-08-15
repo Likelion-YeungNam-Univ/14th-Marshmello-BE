@@ -9,18 +9,20 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.Objects;
 import org.hibernate.annotations.Check;
 
 @Entity
 @Table(
         name = "report",
         uniqueConstraints = @UniqueConstraint(
-                name = "uq_report_user_period",
-                columnNames = {"user_id", "period_start", "period_end"}
+                name = "uq_report_user_month",
+                columnNames = {"user_id", "report_month"}
         ),
-        indexes = @Index(name = "idx_report_user_period_start", columnList = "user_id, period_start DESC")
+        indexes = @Index(name = "idx_report_user_month", columnList = "user_id, report_month DESC")
 )
-@Check(name = "ck_report_period", constraints = "period_start <= period_end")
+@Check(name = "ck_report_month_first_day", constraints = "EXTRACT(DAY FROM report_month) = 1")
 public class Report {
 
     @Id
@@ -31,11 +33,8 @@ public class Report {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "period_start", nullable = false)
-    private LocalDate periodStart;
-
-    @Column(name = "period_end", nullable = false)
-    private LocalDate periodEnd;
+    @Column(name = "report_month", nullable = false)
+    private LocalDate reportMonth;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -43,11 +42,10 @@ public class Report {
     protected Report() {
     }
 
-    public Report(String content, LocalDate periodStart, LocalDate periodEnd, Long userId) {
-        this.content = content;
-        this.periodStart = periodStart;
-        this.periodEnd = periodEnd;
-        this.userId = userId;
+    public Report(String content, YearMonth reportMonth, Long userId) {
+        this.content = Objects.requireNonNull(content);
+        this.reportMonth = Objects.requireNonNull(reportMonth).atDay(1);
+        this.userId = Objects.requireNonNull(userId);
     }
 
     public Long getReportId() {
@@ -58,12 +56,8 @@ public class Report {
         return content;
     }
 
-    public LocalDate getPeriodStart() {
-        return periodStart;
-    }
-
-    public LocalDate getPeriodEnd() {
-        return periodEnd;
+    public YearMonth getReportMonth() {
+        return YearMonth.from(reportMonth);
     }
 
     public Long getUserId() {
