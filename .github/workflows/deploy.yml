@@ -20,10 +20,10 @@ jobs:
     timeout-minutes: 30
     env:
       APP_PORT: ${{ vars.APP_PORT }}
-      APP_CORS_ALLOWED_ORIGINS: ${{ vars.APP_CORS_ALLOWED_ORIGINS }}
-      APP_LOGIN_SUCCESS_URL: ${{ vars.APP_LOGIN_SUCCESS_URL }}
-      SESSION_COOKIE_SAME_SITE: ${{ vars.SESSION_COOKIE_SAME_SITE }}
-      SESSION_COOKIE_SECURE: ${{ vars.SESSION_COOKIE_SECURE }}
+      APP_CORS_ALLOWED_ORIGINS: ${{ vars.APP_CORS_ALLOWED_ORIGINS || 'http://localhost:5173' }}
+      APP_LOGIN_SUCCESS_URL: ${{ vars.APP_LOGIN_SUCCESS_URL || 'http://localhost:5173' }}
+      SESSION_COOKIE_SAME_SITE: ${{ vars.SESSION_COOKIE_SAME_SITE || 'none' }}
+      SESSION_COOKIE_SECURE: ${{ vars.SESSION_COOKIE_SECURE || 'true' }}
       POSTGRES_DB: ${{ vars.POSTGRES_DB }}
       POSTGRES_USER: ${{ vars.POSTGRES_USER }}
       AWS_REGION: ${{ vars.AWS_REGION }}
