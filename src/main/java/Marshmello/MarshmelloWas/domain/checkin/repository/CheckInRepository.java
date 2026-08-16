@@ -3,6 +3,7 @@ package Marshmello.MarshmelloWas.domain.checkin.repository;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -18,13 +19,17 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     boolean existsByUserIdAndCheckInDate(Long userId, LocalDate checkInDate);
 
-    long countByUserIdAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
-            Long userId,
-            LocalDate periodStart,
-            LocalDate periodEnd
-    );
-
-    long countByUserIdAndAchievedTrueAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
+    @Query("""
+            select new Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse(
+                count(checkIn),
+                coalesce(sum(case when checkIn.achieved = true then 1 else 0 end), 0)
+            )
+            from CheckIn checkIn
+            where checkIn.userId = :userId
+              and checkIn.checkInDate >= :periodStart
+              and checkIn.checkInDate < :periodEnd
+            """)
+    MonthlyCheckInCountResponse findMonthlyCountByUserIdAndPeriod(
             Long userId,
             LocalDate periodStart,
             LocalDate periodEnd

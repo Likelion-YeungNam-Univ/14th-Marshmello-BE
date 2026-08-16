@@ -62,16 +62,10 @@ public class CheckInQueryService {
         long userId = currentUserIdProvider.requireCurrentUserId();
         LocalDate periodStart = month.atDay(1);
         LocalDate periodEnd = month.plusMonths(1).atDay(1);
-        long count = checkInRepository.countByUserIdAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
+        return checkInRepository.findMonthlyCountByUserIdAndPeriod(
                 userId,
                 periodStart,
                 periodEnd);
-        long achievedCount = checkInRepository
-                .countByUserIdAndAchievedTrueAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
-                        userId,
-                        periodStart,
-                        periodEnd);
-        return new MonthlyCheckInCountResponse(count, achievedCount);
     }
 
     @Transactional(readOnly = true)

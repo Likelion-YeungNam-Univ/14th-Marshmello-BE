@@ -31,8 +31,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -42,6 +45,9 @@ class CheckInQueryServiceTest {
 
     @Autowired
     private CheckInQueryService service;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @Autowired
     private UserRepository userRepository;
@@ -125,6 +131,29 @@ class CheckInQueryServiceTest {
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
                 .isEqualTo(new MonthlyCheckInCountResponse(3, 2));
+    }
+
+    @Test
+    void retrievesMonthlyCountsWithOnePreparedStatement() {
+        User owner = userRepository.save(new User("query-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-query-first", true);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 17), "test/count-query-middle", false);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-query-last", true);
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean statisticsEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        try {
+            MonthlyCheckInCountResponse response = service.getMonthlyCount(YearMonth.of(2026, 8));
+
+            assertThat(response).isEqualTo(new MonthlyCheckInCountResponse(3, 2));
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+        } finally {
+            statistics.clear();
+            statistics.setStatisticsEnabled(statisticsEnabled);
+        }
     }
 
     @Test
