@@ -62,4 +62,6 @@ const mutationHeaders = {
 
 로그인은 최상위 이동으로 `http://localhost:8080/oauth2/authorization/oidc`를 여세요. 로그인 전 보호 API의 `401`은 정상입니다. `APP_CORS_ALLOWED_ORIGINS`에는 쉼표로 구분한 정확한 Origin만 지정하고 와일드카드는 사용하지 마세요. 절대 `mode: 'no-cors'`를 사용하지 말고, 인증 토큰을 클라이언트에 저장하지 마세요. 인증은 세션 쿠키 흐름을 사용하세요.
 
+로컬 프런트엔드에서 EC2 인증을 테스트할 때 API 주소는 `https://marshmello-be.duckdns.org`를 사용하고 모든 요청에 `credentials: 'include'`를 적용하세요. EC2 배포에는 `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173`, `APP_LOGIN_SUCCESS_URL=http://localhost:5173`, `SESSION_COOKIE_SAME_SITE=none`, `SESSION_COOKIE_SECURE=true`가 필요하며, OAuth 공급자에는 `https://marshmello-be.duckdns.org/login/oauth2/code/oidc`를 콜백 URL로 등록해야 합니다.
+
 ---

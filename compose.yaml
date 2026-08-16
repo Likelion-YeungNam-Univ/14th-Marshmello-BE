@@ -37,6 +37,7 @@ services:
       APP_LOGIN_SUCCESS_URL: ${APP_LOGIN_SUCCESS_URL:-/}
 
       OIDC_GOOGLE_OFFLINE_ACCESS: ${OIDC_GOOGLE_OFFLINE_ACCESS:-false}
+      SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
     secrets:
       - source: postgres_password
