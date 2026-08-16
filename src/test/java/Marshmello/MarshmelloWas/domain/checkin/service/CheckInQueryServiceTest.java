@@ -116,19 +116,59 @@ class CheckInQueryServiceTest {
     }
 
     @Test
-    void returnsOnlyCurrentUsersCheckInsWithinTheRequestedMonth() {
+    void returnsTheExactCountOfCurrentUsersCheckInsWithinTheRequestedMonth() {
         User owner = userRepository.save(new User("count-owner", null));
-        User other = userRepository.save(new User("count-other", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 7, 31), "test/count-previous-month");
         saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-first-day");
         saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 17), "test/count-middle-day");
         saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day");
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 9, 1), "test/count-next-month");
-        saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 15), "test/count-other-user");
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
                 .isEqualTo(new MonthlyCheckInCountResponse(3));
+    }
+
+    @Test
+    void excludesAnotherUsersCheckInsFromTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        User other = userRepository.save(new User("count-other", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 15), "test/count-owner");
+        saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 16), "test/count-other-user");
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1));
+    }
+
+    @Test
+    void excludesPreviousMonthsCheckInsFromTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 7, 31), "test/count-previous-month");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-current-month");
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1));
+    }
+
+    @Test
+    void excludesNextMonthsCheckInsFromTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-current-month");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 9, 1), "test/count-next-month");
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1));
+    }
+
+    @Test
+    void includesTheLastDayOfTheMonthInTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day");
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1));
     }
 
     @Test
@@ -173,6 +213,7 @@ class CheckInQueryServiceTest {
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
         saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.ABDOMEN);
         saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 7, 30), BodyRegion.RIGHT_LEG);
         saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 7, 31), BodyRegion.RIGHT_LEG);
         saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 9, 1), BodyRegion.RIGHT_LEG);
 
