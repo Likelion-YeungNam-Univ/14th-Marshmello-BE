@@ -12,6 +12,7 @@ import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +20,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.MutablePropertySources;
+import org.springframework.core.env.PropertySourcesPropertyResolver;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.support.PropertiesLoaderUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
@@ -33,7 +39,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "app.cors.allowed-origins=http://localhost:5173",
                 "app.login-success-url=http://localhost:5173",
                 "spring.security.oauth2.client.provider.test-provider.user-info-uri="
         })
@@ -204,5 +209,26 @@ class SecurityHttpQaTest {
                                 "nonce", token.substring("test-id-token:".length())));
             };
         }
+    }
+}
+
+class CrossSiteSessionCookieConfigurationTest {
+
+    @Test
+    void resolvesSecureSameSiteNoneCookieEnvironmentVariables() throws Exception {
+        Properties applicationProperties = PropertiesLoaderUtils.loadProperties(
+                new FileSystemResource("src/main/resources/application.properties"));
+        MutablePropertySources propertySources = new MutablePropertySources();
+        propertySources.addFirst(new MapPropertySource(
+                "sessionCookieEnvironment",
+                Map.of(
+                        "SESSION_COOKIE_SAME_SITE", "none",
+                        "SESSION_COOKIE_SECURE", "true")));
+        PropertySourcesPropertyResolver resolver = new PropertySourcesPropertyResolver(propertySources);
+
+        assertThat(resolver.resolveRequiredPlaceholders(applicationProperties.getProperty(
+                "server.servlet.session.cookie.same-site"))).isEqualTo("none");
+        assertThat(resolver.resolveRequiredPlaceholders(applicationProperties.getProperty(
+                "server.servlet.session.cookie.secure"))).isEqualTo("true");
     }
 }
