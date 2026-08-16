@@ -5,6 +5,7 @@ import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
 import jakarta.validation.Valid;
@@ -59,5 +60,12 @@ public class CheckInController {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
         return checkInQueryService.getMonthlyCount(month);
+    }
+
+    @GetMapping("/body-diaries/top-region")
+    public MostFrequentBodyRegionResponse getMostFrequentBodyRegion(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
+    ) {
+        return checkInQueryService.getMostFrequentBodyRegion(month);
     }
 }

@@ -137,6 +137,13 @@ class CheckInIdentityHttpTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(1));
 
+        mockMvc.perform(get("/api/check-ins/body-diaries/top-region")
+                        .queryParam("month", "2026-08")
+                        .with(oidcLogin().idToken(token -> token.subject(SUBJECT))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bodyRegion").value(2))
+                .andExpect(jsonPath("$.count").doesNotExist());
+
         mockMvc.perform(get("/api/check-ins/images/{imageId}/url", imageId.longValue())
                         .with(oidcLogin().idToken(token -> token.subject(SUBJECT))))
                 .andExpect(status().isOk())

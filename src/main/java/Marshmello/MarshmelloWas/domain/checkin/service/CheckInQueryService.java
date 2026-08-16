@@ -5,10 +5,12 @@ import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage.ImageReadUrl;
 import Marshmello.MarshmelloWas.domain.checkin.repository.CheckInRepository;
+import Marshmello.MarshmelloWas.domain.checkin.repository.BodyDiaryRepository;
 import Marshmello.MarshmelloWas.domain.checkin.repository.ImageRepository;
 import Marshmello.MarshmelloWas.global.exception.ApiException;
 import Marshmello.MarshmelloWas.global.exception.ErrorCode;
@@ -23,17 +25,20 @@ public class CheckInQueryService {
 
     private final CurrentUserIdProvider currentUserIdProvider;
     private final CheckInRepository checkInRepository;
+    private final BodyDiaryRepository bodyDiaryRepository;
     private final ImageRepository imageRepository;
     private final ImageStorage imageStorage;
 
     public CheckInQueryService(
             CurrentUserIdProvider currentUserIdProvider,
             CheckInRepository checkInRepository,
+            BodyDiaryRepository bodyDiaryRepository,
             ImageRepository imageRepository,
             ImageStorage imageStorage
     ) {
         this.currentUserIdProvider = currentUserIdProvider;
         this.checkInRepository = checkInRepository;
+        this.bodyDiaryRepository = bodyDiaryRepository;
         this.imageRepository = imageRepository;
         this.imageStorage = imageStorage;
     }
@@ -62,6 +67,18 @@ public class CheckInQueryService {
                 periodStart,
                 periodEnd);
         return new MonthlyCheckInCountResponse(count);
+    }
+
+    @Transactional(readOnly = true)
+    public MostFrequentBodyRegionResponse getMostFrequentBodyRegion(YearMonth month) {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        LocalDate periodStart = month.atDay(1);
+        LocalDate periodEnd = month.plusMonths(1).atDay(1);
+        Short bodyRegion = bodyDiaryRepository.findBodyRegionsOrderedByCount(userId, periodStart, periodEnd)
+                .stream()
+                .findFirst()
+                .orElse(null);
+        return new MostFrequentBodyRegionResponse(bodyRegion);
     }
 
     public ImageUrlResponse createImageUrl(long imageId) {

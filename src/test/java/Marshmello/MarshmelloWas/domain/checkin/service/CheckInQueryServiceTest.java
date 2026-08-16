@@ -8,7 +8,10 @@ import static org.mockito.Mockito.when;
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.entity.BodyDiary;
+import Marshmello.MarshmelloWas.domain.checkin.entity.BodyRegion;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
@@ -138,6 +141,66 @@ class CheckInQueryServiceTest {
     }
 
     @Test
+    void returnsMostFrequentBodyRegionForTheCurrentUserInTheRequestedMonth() {
+        User owner = userRepository.save(new User("body-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.CHEST);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 15), BodyRegion.ABDOMEN);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+    }
+
+    @Test
+    void excludesAnotherUsersBodyDiariesFromTheMonthlyRegionCount() {
+        User owner = userRepository.save(new User("body-owner", null));
+        User other = userRepository.save(new User("body-other", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+        saveBodyDiary(other.getUserId(), LocalDate.of(2026, 8, 3), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(other.getUserId(), LocalDate.of(2026, 8, 4), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(other.getUserId(), LocalDate.of(2026, 8, 5), BodyRegion.RIGHT_LEG);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+    }
+
+    @Test
+    void excludesBodyDiariesOutsideTheRequestedMonth() {
+        User owner = userRepository.save(new User("body-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 7, 31), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 9, 1), BodyRegion.RIGHT_LEG);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+    }
+
+    @Test
+    void returnsTheSmallestRegionCodeWhenMonthlyBodyDiaryCountsAreTied() {
+        User owner = userRepository.save(new User("body-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.PELVIS);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+    }
+
+    @Test
+    void returnsNullWhenTheRequestedMonthHasNoBodyDiaries() {
+        User owner = userRepository.save(new User("empty-region", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse(null));
+    }
+
+    @Test
     void createsReadUrlOnlyForOwnedAttachedImage() {
         User owner = userRepository.save(new User("url-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
@@ -178,6 +241,11 @@ class CheckInQueryServiceTest {
         imageRepository.save(image);
         imageAnalysisRepository.save(new ImageAnalysis(image.id(), (short) 4));
         return image;
+    }
+
+    private void saveBodyDiary(long userId, LocalDate date, BodyRegion bodyRegion) {
+        CheckIn checkIn = checkInRepository.save(new CheckIn(false, date, null, (short) 1, userId));
+        bodyDiaryRepository.save(new BodyDiary(bodyRegion, checkIn, null, null));
     }
 
     private void assertImageNotFound(long imageId) {
