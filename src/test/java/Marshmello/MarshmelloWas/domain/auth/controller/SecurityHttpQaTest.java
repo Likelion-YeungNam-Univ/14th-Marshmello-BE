@@ -33,6 +33,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
+                "app.cors.allowed-origins=http://localhost:5173",
                 "app.login-success-url=http://localhost:5173",
                 "spring.security.oauth2.client.provider.test-provider.user-info-uri="
         })
