@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
@@ -109,6 +110,31 @@ class CheckInQueryServiceTest {
                         new CheckInEmotionResponse(LocalDate.of(2026, 8, 2), (short) 2),
                         new CheckInEmotionResponse(LocalDate.of(2026, 8, 20), (short) 4));
         assertThat(service.getEmotionsByMonth(YearMonth.of(2026, 9))).isEmpty();
+    }
+
+    @Test
+    void returnsOnlyCurrentUsersCheckInsWithinTheRequestedMonth() {
+        User owner = userRepository.save(new User("count-owner", null));
+        User other = userRepository.save(new User("count-other", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 7, 31), "test/count-previous-month");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-first-day");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 17), "test/count-middle-day");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 9, 1), "test/count-next-month");
+        saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 15), "test/count-other-user");
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(3));
+    }
+
+    @Test
+    void returnsZeroWhenTheRequestedMonthHasNoCheckIns() {
+        User owner = userRepository.save(new User("empty-count", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(0));
     }
 
     @Test

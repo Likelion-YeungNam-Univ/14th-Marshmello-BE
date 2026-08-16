@@ -14,6 +14,7 @@ import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
 import java.time.LocalDate;
@@ -133,6 +134,39 @@ class CheckInControllerHttpTest {
                         .queryParam("month", "2026-8")
                         .with(oidcLogin()))
                 .andExpect(status().isBadRequest());
+        verifyNoInteractions(checkInQueryService);
+    }
+
+    @Test
+    void returnsMonthlyCheckInCount() throws Exception {
+        when(checkInQueryService.getMonthlyCount(YearMonth.of(2026, 8)))
+                .thenReturn(new MonthlyCheckInCountResponse(3));
+
+        mockMvc.perform(get("/api/check-ins/count")
+                        .queryParam("month", "2026-08")
+                        .with(oidcLogin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(3));
+    }
+
+    @Test
+    void requiresAValidYearMonthForMonthlyCount() throws Exception {
+        mockMvc.perform(get("/api/check-ins/count").with(oidcLogin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        mockMvc.perform(get("/api/check-ins/count")
+                        .queryParam("month", "2026-8")
+                        .with(oidcLogin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        verifyNoInteractions(checkInQueryService);
+    }
+
+    @Test
+    void requiresAuthenticationForMonthlyCount() throws Exception {
+        mockMvc.perform(get("/api/check-ins/count")
+                        .queryParam("month", "2026-08"))
+                .andExpect(status().isUnauthorized());
         verifyNoInteractions(checkInQueryService);
     }
 

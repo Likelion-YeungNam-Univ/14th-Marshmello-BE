@@ -18,6 +18,12 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     boolean existsByUserIdAndCheckInDate(Long userId, LocalDate checkInDate);
 
+    long countByUserIdAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
+            Long userId,
+            LocalDate periodStart,
+            LocalDate periodEnd
+    );
+
     Page<CheckIn> findByUserId(Long userId, Pageable pageable);
 
     @Query("""

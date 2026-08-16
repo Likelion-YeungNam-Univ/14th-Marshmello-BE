@@ -4,6 +4,7 @@ import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
 import jakarta.validation.Valid;
@@ -51,5 +52,12 @@ public class CheckInController {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
         return checkInQueryService.getEmotionsByMonth(month);
+    }
+
+    @GetMapping("/count")
+    public MonthlyCheckInCountResponse getMonthlyCount(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
+    ) {
+        return checkInQueryService.getMonthlyCount(month);
     }
 }

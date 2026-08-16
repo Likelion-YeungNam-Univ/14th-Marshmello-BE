@@ -4,6 +4,7 @@ import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage.ImageReadUrl;
@@ -49,6 +50,18 @@ public class CheckInQueryService {
         LocalDate periodStart = month.atDay(1);
         LocalDate periodEnd = month.plusMonths(1).atDay(1);
         return checkInRepository.findEmotionsByUserIdAndPeriod(userId, periodStart, periodEnd);
+    }
+
+    @Transactional(readOnly = true)
+    public MonthlyCheckInCountResponse getMonthlyCount(YearMonth month) {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        LocalDate periodStart = month.atDay(1);
+        LocalDate periodEnd = month.plusMonths(1).atDay(1);
+        long count = checkInRepository.countByUserIdAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
+                userId,
+                periodStart,
+                periodEnd);
+        return new MonthlyCheckInCountResponse(count);
     }
 
     public ImageUrlResponse createImageUrl(long imageId) {
