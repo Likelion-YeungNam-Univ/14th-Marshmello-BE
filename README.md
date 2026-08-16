@@ -45,4 +45,21 @@
 
 - **main**: 항상 배포 가능한 안정된 코드 유지 브랜치
 
+## Localhost frontend 연동
+
+백엔드는 `http://localhost:8080`, 프런트엔드는 `http://localhost:5173`에서 실행합니다. API 호출에는 `credentials: 'include'`를 사용하세요.
+
+```js
+const csrf = await fetch('http://localhost:8080/api/csrf', {
+  credentials: 'include'
+}).then(response => response.json()); // GET /api/csrf
+
+const mutationHeaders = {
+  'Content-Type': 'application/json',
+  [csrf.headerName]: csrf.token
+}; // use these headers on POST/PUT/PATCH/DELETE requests
+```
+
+로그인은 최상위 이동으로 `http://localhost:8080/oauth2/authorization/oidc`를 여세요. 로그인 전 보호 API의 `401`은 정상입니다. `APP_CORS_ALLOWED_ORIGINS`에는 쉼표로 구분한 정확한 Origin만 지정하고 와일드카드는 사용하지 마세요. 절대 `mode: 'no-cors'`를 사용하지 말고, 인증 토큰을 클라이언트에 저장하지 마세요. 인증은 세션 쿠키 흐름을 사용하세요.
+
 ---

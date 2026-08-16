@@ -6,9 +6,11 @@ import java.util.function.Consumer;
 import Marshmello.MarshmelloWas.domain.auth.adapter.ModelGateAuthorizationManager;
 import Marshmello.MarshmelloWas.domain.auth.adapter.ProvisioningOidcUserService;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProvider;
@@ -37,12 +39,14 @@ public class SecurityConfig {
             AuthorizationRequestRepository<OAuth2AuthorizationRequest> authorizationRequestRepository,
             ModelGateAuthorizationManager modelGateAuthorizationManager,
             ProvisioningOidcUserService provisioningOidcUserService,
-            OidcSecurityProperties oidcProperties
+            OidcSecurityProperties oidcProperties,
+            @Value("${app.login-success-url:/}") String loginSuccessUrl
     ) throws Exception {
         OAuth2AuthorizationRequestResolver authorizationRequestResolver =
             authorizationRequestResolver(clientRegistrationRepository, oidcProperties);
 
         http
+            .cors(Customizer.withDefaults())
             .authorizeHttpRequests(authorize -> authorize
                     .requestMatchers(
                             "/actuator/health",
@@ -73,7 +77,7 @@ public class SecurityConfig {
                     .authorizationRequestRepository(authorizationRequestRepository)
                     .authorizationRequestResolver(authorizationRequestResolver)
                 )
-                .defaultSuccessUrl("/", true)
+                .defaultSuccessUrl(loginSuccessUrl, true)
             )
             .oauth2Client(client -> client
                 .authorizedClientRepository(authorizedClientRepository)
