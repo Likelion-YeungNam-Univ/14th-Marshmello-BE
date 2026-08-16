@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.cors.allowed-origins=http://localhost:5173")
 @AutoConfigureMockMvc
 @Import({CorsConfigTest.CorsProbeController.class, CorsConfigTest.CorsProbeSecurityConfiguration.class})
 class CorsConfigTest {
