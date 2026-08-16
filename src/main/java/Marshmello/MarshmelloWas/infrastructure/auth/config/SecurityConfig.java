@@ -25,6 +25,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepo
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 
 @Configuration
 public class SecurityConfig {
@@ -82,7 +83,9 @@ public class SecurityConfig {
                 .sessionFixation(fixation -> fixation.migrateSession())
             )
             .logout(logout -> logout
-                .logoutSuccessUrl("/")
+                .logoutSuccessHandler(
+                    new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)
+                )
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
                 .deleteCookies("JSESSIONID")
