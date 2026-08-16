@@ -135,7 +135,8 @@ class CheckInIdentityHttpTest {
                         .queryParam("month", "2026-08")
                         .with(oidcLogin().idToken(token -> token.subject(SUBJECT))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.count").value(1));
+                .andExpect(jsonPath("$.count").value(1))
+                .andExpect(jsonPath("$.achievedCount").value(1));
 
         mockMvc.perform(get("/api/check-ins/body-diaries/top-region")
                         .queryParam("month", "2026-08")

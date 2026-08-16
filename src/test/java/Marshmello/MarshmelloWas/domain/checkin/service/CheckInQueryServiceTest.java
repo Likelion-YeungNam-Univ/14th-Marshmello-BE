@@ -119,12 +119,12 @@ class CheckInQueryServiceTest {
     void returnsTheExactCountOfCurrentUsersCheckInsWithinTheRequestedMonth() {
         User owner = userRepository.save(new User("count-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-first-day");
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 17), "test/count-middle-day");
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-first-day", true);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 17), "test/count-middle-day", false);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day", true);
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
-                .isEqualTo(new MonthlyCheckInCountResponse(3));
+                .isEqualTo(new MonthlyCheckInCountResponse(3, 2));
     }
 
     @Test
@@ -132,43 +132,43 @@ class CheckInQueryServiceTest {
         User owner = userRepository.save(new User("count-owner", null));
         User other = userRepository.save(new User("count-other", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 15), "test/count-owner");
-        saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 16), "test/count-other-user");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 15), "test/count-owner", false);
+        saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 16), "test/count-other-user", true);
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
-                .isEqualTo(new MonthlyCheckInCountResponse(1));
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 0));
     }
 
     @Test
     void excludesPreviousMonthsCheckInsFromTheMonthlyCount() {
         User owner = userRepository.save(new User("count-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 7, 31), "test/count-previous-month");
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-current-month");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 7, 31), "test/count-previous-month", true);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-current-month", false);
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
-                .isEqualTo(new MonthlyCheckInCountResponse(1));
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 0));
     }
 
     @Test
     void excludesNextMonthsCheckInsFromTheMonthlyCount() {
         User owner = userRepository.save(new User("count-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-current-month");
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 9, 1), "test/count-next-month");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-current-month", false);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 9, 1), "test/count-next-month", true);
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
-                .isEqualTo(new MonthlyCheckInCountResponse(1));
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 0));
     }
 
     @Test
     void includesTheLastDayOfTheMonthInTheMonthlyCount() {
         User owner = userRepository.save(new User("count-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
-        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day");
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day", true);
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
-                .isEqualTo(new MonthlyCheckInCountResponse(1));
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 1));
     }
 
     @Test
@@ -177,7 +177,7 @@ class CheckInQueryServiceTest {
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
 
         assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
-                .isEqualTo(new MonthlyCheckInCountResponse(0));
+                .isEqualTo(new MonthlyCheckInCountResponse(0, 0));
     }
 
     @Test
@@ -270,11 +270,19 @@ class CheckInQueryServiceTest {
     }
 
     private Image saveCheckIn(long userId, LocalDate date, String objectKey) {
-        return saveCheckIn(userId, date, objectKey, (short) 1);
+        return saveCheckIn(userId, date, objectKey, (short) 1, false);
     }
 
     private Image saveCheckIn(long userId, LocalDate date, String objectKey, short emotion) {
-        CheckIn checkIn = checkInRepository.save(new CheckIn(false, date, null, emotion, userId));
+        return saveCheckIn(userId, date, objectKey, emotion, false);
+    }
+
+    private Image saveCheckIn(long userId, LocalDate date, String objectKey, boolean achieved) {
+        return saveCheckIn(userId, date, objectKey, (short) 1, achieved);
+    }
+
+    private Image saveCheckIn(long userId, LocalDate date, String objectKey, short emotion, boolean achieved) {
+        CheckIn checkIn = checkInRepository.save(new CheckIn(achieved, date, null, emotion, userId));
         Image image = new Image(userId, objectKey, "image/png", Instant.now());
         image.attachTo(checkIn, userId);
         imageRepository.save(image);

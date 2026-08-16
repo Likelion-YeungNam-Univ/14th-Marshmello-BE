@@ -66,7 +66,12 @@ public class CheckInQueryService {
                 userId,
                 periodStart,
                 periodEnd);
-        return new MonthlyCheckInCountResponse(count);
+        long achievedCount = checkInRepository
+                .countByUserIdAndAchievedTrueAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
+                        userId,
+                        periodStart,
+                        periodEnd);
+        return new MonthlyCheckInCountResponse(count, achievedCount);
     }
 
     @Transactional(readOnly = true)

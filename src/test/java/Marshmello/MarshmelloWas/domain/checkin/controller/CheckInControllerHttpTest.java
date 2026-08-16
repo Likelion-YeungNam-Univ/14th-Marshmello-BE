@@ -142,13 +142,14 @@ class CheckInControllerHttpTest {
     @Test
     void returnsMonthlyCheckInCount() throws Exception {
         when(checkInQueryService.getMonthlyCount(YearMonth.of(2026, 8)))
-                .thenReturn(new MonthlyCheckInCountResponse(3));
+                .thenReturn(new MonthlyCheckInCountResponse(3, 2));
 
         mockMvc.perform(get("/api/check-ins/count")
                         .queryParam("month", "2026-08")
                         .with(oidcLogin()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.count").value(3));
+                .andExpect(jsonPath("$.count").value(3))
+                .andExpect(jsonPath("$.achievedCount").value(2));
     }
 
     @Test

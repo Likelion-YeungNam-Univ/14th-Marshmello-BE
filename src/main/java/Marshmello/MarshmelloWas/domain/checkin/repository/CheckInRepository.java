@@ -24,6 +24,12 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
             LocalDate periodEnd
     );
 
+    long countByUserIdAndAchievedTrueAndCheckInDateGreaterThanEqualAndCheckInDateLessThan(
+            Long userId,
+            LocalDate periodStart,
+            LocalDate periodEnd
+    );
+
     Page<CheckIn> findByUserId(Long userId, Pageable pageable);
 
     @Query("""
