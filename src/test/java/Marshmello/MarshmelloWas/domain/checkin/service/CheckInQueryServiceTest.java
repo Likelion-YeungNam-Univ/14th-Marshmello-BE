@@ -211,14 +211,12 @@ class CheckInQueryServiceTest {
     void excludesBodyDiariesOutsideTheRequestedMonth() {
         User owner = userRepository.save(new User("body-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
-        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.ABDOMEN);
-        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
-        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 7, 30), BodyRegion.RIGHT_LEG);
-        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 7, 31), BodyRegion.RIGHT_LEG);
-        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 9, 1), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 7, 31), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 9, 1), BodyRegion.ABDOMEN);
 
         assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
-                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 8));
     }
 
     @Test
