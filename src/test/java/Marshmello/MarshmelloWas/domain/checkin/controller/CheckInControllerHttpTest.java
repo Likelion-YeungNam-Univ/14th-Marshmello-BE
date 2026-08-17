@@ -13,8 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.BodyDiaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
@@ -89,15 +89,26 @@ class CheckInControllerHttpTest {
     @Test
     void returnsCheckInsForTheRequestedDate() throws Exception {
         LocalDate date = LocalDate.of(2026, 8, 15);
-        when(checkInQueryService.getByDate(date)).thenReturn(List.of(new CheckInSummaryResponse(
-                10L, 20L, date, true, (short) 2)));
+        when(checkInQueryService.getByDate(date)).thenReturn(List.of(new CheckInResponse(
+                10L,
+                20L,
+                true,
+                date,
+                "오늘의 기록",
+                (short) 2,
+                List.of(new BodyDiaryResponse((short) 2, null, "복부")))));
 
         mockMvc.perform(get("/api/check-ins")
                         .queryParam("date", "2026-08-15")
                         .with(oidcLogin()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].checkInId").value(10))
-                .andExpect(jsonPath("$[0].imageId").value(20));
+                .andExpect(jsonPath("$[0].imageId").value(20))
+                .andExpect(jsonPath("$[0].achieved").value(true))
+                .andExpect(jsonPath("$[0].diary").value("오늘의 기록"))
+                .andExpect(jsonPath("$[0].emotion").value(2))
+                .andExpect(jsonPath("$[0].bodyDiaries[0].bodyRegion").value(2))
+                .andExpect(jsonPath("$[0].bodyDiaries[0].comment").value("복부"));
     }
 
     @Test

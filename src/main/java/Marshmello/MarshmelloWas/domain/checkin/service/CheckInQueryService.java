@@ -1,11 +1,13 @@
 package Marshmello.MarshmelloWas.domain.checkin.service;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.BodyDiaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage;
 import Marshmello.MarshmelloWas.domain.checkin.port.ImageStorage.ImageReadUrl;
@@ -44,9 +46,31 @@ public class CheckInQueryService {
     }
 
     @Transactional(readOnly = true)
-    public List<CheckInSummaryResponse> getByDate(LocalDate date) {
+    public List<CheckInResponse> getByDate(LocalDate date) {
         long userId = currentUserIdProvider.requireCurrentUserId();
-        return checkInRepository.findSummariesByUserIdAndDate(userId, date);
+        List<CheckIn> checkIns = checkInRepository
+                .findByUserIdAndCheckInDateBetweenOrderByCheckInDateAscCheckInIdAsc(userId, date, date);
+        if (checkIns.isEmpty()) {
+            return List.of();
+        }
+
+        CheckIn checkIn = checkIns.get(0);
+        List<BodyDiaryResponse> bodyDiaries = bodyDiaryRepository
+                .findByBodyDiaryIdCheckInIdInOrderByBodyDiaryIdBodyRegionAsc(List.of(checkIn.id()))
+                .stream()
+                .map(bodyDiary -> new BodyDiaryResponse(
+                        bodyDiary.bodyRegion(),
+                        bodyDiary.stretchMark(),
+                        bodyDiary.comment()))
+                .toList();
+        return List.of(new CheckInResponse(
+                checkIn.id(),
+                checkIn.imageId(),
+                checkIn.achieved(),
+                checkIn.date(),
+                checkIn.diary(),
+                checkIn.emotion(),
+                bodyDiaries));
     }
 
     @Transactional(readOnly = true)

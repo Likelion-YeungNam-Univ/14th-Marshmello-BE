@@ -1,7 +1,6 @@
 package Marshmello.MarshmelloWas.domain.checkin.repository;
 
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 
@@ -36,21 +35,6 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
     );
 
     Page<CheckIn> findByUserId(Long userId, Pageable pageable);
-
-    @Query("""
-            select new Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse(
-                checkIn.checkInId,
-                image.imageId,
-                checkIn.checkInDate,
-                checkIn.achieved,
-                checkIn.emotion
-            )
-            from CheckIn checkIn
-            join checkIn.image image
-            where checkIn.userId = :userId
-              and checkIn.checkInDate = :date
-            """)
-    List<CheckInSummaryResponse> findSummariesByUserIdAndDate(Long userId, LocalDate date);
 
     @Query("""
             select new Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse(

@@ -7,9 +7,10 @@ import static org.mockito.Mockito.when;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.BodyDiaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.BodyDiary;
 import Marshmello.MarshmelloWas.domain.checkin.entity.BodyRegion;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
@@ -87,12 +88,19 @@ class CheckInQueryServiceTest {
         saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 13), "test/old");
         Image newest = saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 15), "test/new");
         saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 14), "test/other");
+        CheckIn checkIn = checkInRepository.findById(newest.checkInId()).orElseThrow();
+        bodyDiaryRepository.save(new BodyDiary(BodyRegion.ABDOMEN, checkIn, null, "복부"));
 
-        List<CheckInSummaryResponse> result = service.getByDate(LocalDate.of(2026, 8, 15));
+        List<CheckInResponse> result = service.getByDate(LocalDate.of(2026, 8, 15));
 
-        assertThat(result).singleElement()
-                .extracting(CheckInSummaryResponse::imageId)
-                .isEqualTo(newest.id());
+        assertThat(result).containsExactly(new CheckInResponse(
+                checkIn.id(),
+                newest.id(),
+                false,
+                LocalDate.of(2026, 8, 15),
+                "테스트 기록",
+                (short) 1,
+                List.of(new BodyDiaryResponse((short) 2, null, "복부"))));
     }
 
     @Test
@@ -311,7 +319,12 @@ class CheckInQueryServiceTest {
     }
 
     private Image saveCheckIn(long userId, LocalDate date, String objectKey, short emotion, boolean achieved) {
-        CheckIn checkIn = checkInRepository.save(new CheckIn(achieved, date, null, emotion, userId));
+        CheckIn checkIn = checkInRepository.save(new CheckIn(
+                achieved,
+                date,
+                "테스트 기록",
+                emotion,
+                userId));
         Image image = new Image(userId, objectKey, "image/png", Instant.now());
         image.attachTo(checkIn, userId);
         imageRepository.save(image);
