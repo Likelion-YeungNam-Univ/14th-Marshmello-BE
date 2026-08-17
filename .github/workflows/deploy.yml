@@ -38,6 +38,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       IMAGE_REPOSITORY: ${{ vars.GHCR_IMAGE }}
       RELEASE_ID: ${{ github.sha }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - name: Check out tested develop commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
