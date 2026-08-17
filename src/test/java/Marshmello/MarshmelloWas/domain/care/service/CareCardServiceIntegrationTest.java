@@ -15,6 +15,7 @@ import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.care.dto.CareCardCreationResult;
 import Marshmello.MarshmelloWas.domain.care.dto.CareCardGenerationRequest;
 import Marshmello.MarshmelloWas.domain.care.entity.Action;
+import Marshmello.MarshmelloWas.domain.care.entity.CareCard;
 import Marshmello.MarshmelloWas.domain.care.entity.UserActionFeedbackId;
 import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator;
 import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator.CareCardGeneratedText;
@@ -35,9 +36,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicLong;
+import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -71,6 +75,9 @@ class CareCardServiceIntegrationTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     private final AtomicLong currentUserId = new AtomicLong();
     private final CareCardGenerator generator = mock(CareCardGenerator.class);
@@ -185,6 +192,61 @@ class CareCardServiceIntegrationTest {
         assertThat(careCardRepository.count()).isZero();
     }
 
+    @Test
+    void getsLatestCurrentUsersCardByDateBeforeIdWithOneBoundedFetchJoinedQuery() {
+        User owner = userRepository.save(new User("latest-owner", null));
+        currentUserId.set(owner.getUserId());
+        CareCard newerOwnersCard = saveCareCard(
+                owner.getUserId(), LocalDate.of(2026, 8, 14), LocalDate.of(2026, 8, 15), "newer");
+        CareCard olderOwnersCard = saveCareCard(
+                owner.getUserId(), LocalDate.of(2026, 8, 13), LocalDate.of(2026, 8, 14), "older");
+        User other = userRepository.save(new User("latest-other", null));
+        CareCard newerOtherUsersCard = saveCareCard(
+                other.getUserId(), LocalDate.of(2026, 8, 14), LocalDate.of(2026, 8, 16), "other");
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean statisticsEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        try {
+            var response = careCardService.getLatest();
+
+            assertThat(olderOwnersCard.getCareCardId()).isGreaterThan(newerOwnersCard.getCareCardId());
+            assertThat(response.careCardId()).isEqualTo(newerOwnersCard.getCareCardId());
+            assertThat(response.careCardId()).isNotEqualTo(newerOtherUsersCard.getCareCardId());
+            assertThat(response.category()).isEqualTo(newerOwnersCard.getAction().getCategory());
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+        } finally {
+            statistics.clear();
+            statistics.setStatisticsEnabled(statisticsEnabled);
+        }
+    }
+
+    @Test
+    void getsLatestCurrentUsersCardByLargerIdWhenDatesAreEqual() {
+        User owner = userRepository.save(new User("latest-tie", null));
+        currentUserId.set(owner.getUserId());
+        CareCard firstCard = saveCareCard(
+                owner.getUserId(), LocalDate.of(2026, 8, 14), LocalDate.of(2026, 8, 15), "first");
+        CareCard secondCard = saveCareCard(
+                owner.getUserId(), LocalDate.of(2026, 8, 16), LocalDate.of(2026, 8, 15), "second");
+
+        var response = careCardService.getLatest();
+
+        assertThat(secondCard.getCareCardId()).isGreaterThan(firstCard.getCareCardId());
+        assertThat(response.careCardId()).isEqualTo(secondCard.getCareCardId());
+    }
+
+    @Test
+    void rejectsLatestLookupWhenCurrentUserHasNoCareCard() {
+        User userWithoutCard = userRepository.save(new User("latest-empty", null));
+        currentUserId.set(userWithoutCard.getUserId());
+
+        assertThatThrownBy(() -> careCardService.getLatest())
+                .isInstanceOfSatisfying(ApiException.class, exception ->
+                        assertThat(exception.errorCode()).isEqualTo(ErrorCode.CARE_CARD_NOT_FOUND));
+    }
+
     private CheckIn saveCheckInContext(short analysisScore) {
         User user = userRepository.save(new User("owner", null));
         currentUserId.set(user.getUserId());
@@ -199,5 +261,22 @@ class CareCardServiceIntegrationTest {
         imageRepository.save(image);
         imageAnalysisRepository.save(new ImageAnalysis(image.id(), analysisScore));
         return checkIn;
+    }
+
+    private CareCard saveCareCard(long userId, LocalDate checkInDate, LocalDate createdDate, String suffix) {
+        CheckIn checkIn = checkInRepository.save(new CheckIn(
+                false,
+                checkInDate,
+                null,
+                (short) 1,
+                userId));
+        Action action = actionRepository.findByActionScoreOrderByActionIdAsc((short) 8).get(0);
+        return careCardRepository.saveAndFlush(new CareCard(
+                "action-" + suffix,
+                "reason-" + suffix,
+                action.getSource(),
+                checkIn.id(),
+                action,
+                createdDate));
     }
 }
