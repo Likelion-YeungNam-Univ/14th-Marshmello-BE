@@ -58,7 +58,8 @@ public class CheckInController {
     public MonthlyCheckInCountResponse getMonthlyCount(
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
-        return checkInQueryService.getMonthlyCount(month);
+        MonthlyCheckInCountResponse response = checkInQueryService.getMonthlyCount(month);
+        return new MonthlyCheckInCountResponse(month, response.count(), response.achievedCount());
     }
 
     @GetMapping("/body-diaries/top-region")
