@@ -45,6 +45,8 @@ import org.springframework.transaction.annotation.Transactional;
 class CareCardIdentityHttpTest {
 
     private static final String SUBJECT = "care-user";
+    private static final String NO_CARD_SUBJECT = "care-user-without-card";
+    private static final String OTHER_SUBJECT = "care-other-user";
 
     @Autowired
     private MockMvc mockMvc;
@@ -107,6 +109,17 @@ class CareCardIdentityHttpTest {
                 .andExpect(jsonPath("$.actionReason").value("피부 이상 신호가 있으면 전문의와 상담하세요."));
 
         CareCard careCard = careCardRepository.findByCheckInId(checkIn.id()).orElseThrow();
+        mockMvc.perform(get("/api/care-cards/latest")
+                        .with(oidcLogin().idToken(token -> token.subject(SUBJECT))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.careCardId").value(careCard.getCareCardId()))
+                .andExpect(jsonPath("$.checkInId").value(checkIn.id()))
+                .andExpect(jsonPath("$.actionName").value("전문의 상담 신호 확인"))
+                .andExpect(jsonPath("$.actionReason").value("피부 이상 신호가 있으면 전문의와 상담하세요."))
+                .andExpect(jsonPath("$.category").value(careCard.getAction().getCategory()))
+                .andExpect(jsonPath("$.source").value(careCard.getSource()))
+                .andExpect(jsonPath("$.createdDate").value(careCard.getCreatedDate().toString()));
+
         mockMvc.perform(patch("/api/care-cards/{careCardId}/feedback", careCard.getCareCardId())
                         .with(oidcLogin().idToken(token -> token.subject(SUBJECT)))
                         .with(csrf())
@@ -121,5 +134,37 @@ class CareCardIdentityHttpTest {
                 careCard.getAction().getActionId());
         assertThat(feedbackRepository.findById(feedbackId).orElseThrow().getHelpfulnessScore())
                 .isEqualTo((short) 5);
+    }
+
+    @Test
+    void returnsCareCardNotFoundWhenCurrentUserHasNoCardButAnotherUserDoes() throws Exception {
+        User userWithoutCard = userRepository.save(new User("care-empty", null));
+        socialAccountRepository.save(new SocialAccount(
+                new SocialAccountId("test", NO_CARD_SUBJECT),
+                userWithoutCard.getUserId()));
+        User otherUser = userRepository.save(new User("care-other-user", null));
+        socialAccountRepository.save(new SocialAccount(
+                new SocialAccountId("test", OTHER_SUBJECT),
+                otherUser.getUserId()));
+        CheckIn otherUsersCheckIn = checkInRepository.save(new CheckIn(
+                false,
+                LocalDate.of(2026, 8, 14),
+                null,
+                (short) 1,
+                otherUser.getUserId()));
+        Image image = new Image(otherUser.getUserId(), "test/http-other-care-image", "image/png", Instant.now());
+        image.attachTo(otherUsersCheckIn, otherUser.getUserId());
+        imageRepository.save(image);
+        imageAnalysisRepository.save(new ImageAnalysis(image.id(), (short) 8));
+        when(generator.generate(any())).thenReturn(new CareCardGeneratedText("other action", "other reason"));
+        mockMvc.perform(post("/api/check-ins/{checkInId}/care-card", otherUsersCheckIn.id())
+                        .with(oidcLogin().idToken(token -> token.subject(OTHER_SUBJECT)))
+                        .with(csrf()))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/care-cards/latest")
+                        .with(oidcLogin().idToken(token -> token.subject(NO_CARD_SUBJECT))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CARE_CARD_NOT_FOUND"));
     }
 }

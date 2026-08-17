@@ -44,6 +44,11 @@ public class CareCardController {
         return careCardService.getByCheckInId(checkInId);
     }
 
+    @GetMapping("/care-cards/latest")
+    public CareCardResponse getLatest() {
+        return careCardService.getLatest();
+    }
+
     @PatchMapping("/care-cards/{careCardId}/feedback")
     public ResponseEntity<Void> updateFeedback(
             @PathVariable @Positive long careCardId,

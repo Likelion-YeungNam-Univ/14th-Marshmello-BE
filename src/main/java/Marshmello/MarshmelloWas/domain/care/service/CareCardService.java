@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -107,6 +108,16 @@ public class CareCardService {
                     .map(this::toResponse)
                     .orElseThrow(() -> new ApiException(ErrorCode.CARE_CARD_NOT_FOUND));
         }));
+    }
+
+    public CareCardResponse getLatest() {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        return requiredTransactionResult(readTransactions.execute(status -> careCardRepository
+                .findLatestByUserId(userId, PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .map(this::toResponse)
+                .orElseThrow(() -> new ApiException(ErrorCode.CARE_CARD_NOT_FOUND))));
     }
 
     public void updateFeedback(long careCardId, short helpfulnessScore) {
