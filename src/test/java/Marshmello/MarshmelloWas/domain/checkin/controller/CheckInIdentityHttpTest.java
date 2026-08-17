@@ -1,5 +1,6 @@
 package Marshmello.MarshmelloWas.domain.checkin.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -122,7 +123,12 @@ class CheckInIdentityHttpTest {
                         .with(oidcLogin().idToken(token -> token.subject(SUBJECT))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].imageId").value(imageId.longValue()))
-                .andExpect(jsonPath("$[0].achieved").value(true));
+                .andExpect(jsonPath("$[0].achieved").value(true))
+                .andExpect(jsonPath("$[0].diary").value("오늘의 기록"))
+                .andExpect(jsonPath("$[0].emotion").value(3))
+                .andExpect(jsonPath("$[0].bodyDiaries[0].bodyRegion").value(2))
+                .andExpect(jsonPath("$[0].bodyDiaries[0].stretchMark").value(nullValue()))
+                .andExpect(jsonPath("$[0].bodyDiaries[0].comment").value("복부"));
 
         mockMvc.perform(get("/api/check-ins/emotions")
                         .queryParam("month", "2026-08")

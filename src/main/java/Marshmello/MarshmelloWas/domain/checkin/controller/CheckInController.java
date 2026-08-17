@@ -3,7 +3,6 @@ package Marshmello.MarshmelloWas.domain.checkin.controller;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
-import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
@@ -42,7 +41,7 @@ public class CheckInController {
     }
 
     @GetMapping
-    public List<CheckInSummaryResponse> getByDate(
+    public List<CheckInResponse> getByDate(
             @RequestParam LocalDate date
     ) {
         return checkInQueryService.getByDate(date);
