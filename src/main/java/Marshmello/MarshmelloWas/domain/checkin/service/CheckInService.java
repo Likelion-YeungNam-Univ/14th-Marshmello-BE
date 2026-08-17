@@ -52,10 +52,14 @@ public class CheckInService {
 
     @Transactional
     public CheckInResponse create(CheckInCreateRequest request) {
+        return create(request, LocalDate.now(clock));
+    }
+
+    @Transactional
+    public CheckInResponse create(CheckInCreateRequest request, LocalDate date) {
         validateDistinctBodyRegions(request.bodyDiaries());
         long userId = currentUserIdProvider.requireCurrentUserId();
-        LocalDate today = LocalDate.now(clock);
-        if (checkInRepository.existsByUserIdAndCheckInDate(userId, today)) {
+        if (checkInRepository.existsByUserIdAndCheckInDate(userId, date)) {
             throw new ApiException(ErrorCode.CHECK_IN_ALREADY_EXISTS);
         }
 
@@ -69,7 +73,7 @@ public class CheckInService {
             throw new ApiException(ErrorCode.IMAGE_ANALYSIS_REQUIRED);
         }
 
-        CheckIn checkIn = saveCheckIn(request, userId, today);
+        CheckIn checkIn = saveCheckIn(request, userId, date);
         image.attachTo(checkIn, userId);
         List<BodyDiary> bodyDiaries = bodyDiaryRepository.saveAll(request.bodyDiaries().stream()
                 .map(bodyDiary -> toEntity(bodyDiary, checkIn))
@@ -87,11 +91,11 @@ public class CheckInService {
         }
     }
 
-    private CheckIn saveCheckIn(CheckInCreateRequest request, long userId, LocalDate today) {
+    private CheckIn saveCheckIn(CheckInCreateRequest request, long userId, LocalDate date) {
         try {
             return checkInRepository.saveAndFlush(new CheckIn(
                     request.achieved(),
-                    today,
+                    date,
                     request.diary(),
                     request.emotion(),
                     userId));

@@ -99,6 +99,20 @@ class CheckInServiceTest {
     }
 
     @Test
+    void createsCheckInForTheRequestedDate() {
+        User user = saveCurrentUser();
+        Image image = saveAnalyzedImage(user.getUserId(), (short) 5);
+        LocalDate requestedDate = LocalDate.of(2026, 8, 10);
+
+        CheckInResponse response = service.create(
+                new CheckInCreateRequest(image.id(), false, null, (short) 1, List.of()), requestedDate);
+
+        assertThat(response.checkInDate()).isEqualTo(requestedDate);
+        assertThat(checkInRepository.findById(response.checkInId()).orElseThrow().date())
+                .isEqualTo(requestedDate);
+    }
+
+    @Test
     void storesNullableStretchMarkAndNumericBodyRegions() {
         User user = saveCurrentUser();
         Image image = saveAnalyzedImage(user.getUserId(), (short) 3);

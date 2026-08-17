@@ -40,6 +40,14 @@ public class CheckInController {
         return ResponseEntity.status(HttpStatus.CREATED).body(checkInService.create(request));
     }
 
+    @PostMapping(params = "date")
+    public ResponseEntity<CheckInResponse> createForDate(
+            @Valid @RequestBody CheckInCreateRequest request,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(checkInService.create(request, date));
+    }
+
     @GetMapping
     public List<CheckInResponse> getByDate(
             @RequestParam LocalDate date
