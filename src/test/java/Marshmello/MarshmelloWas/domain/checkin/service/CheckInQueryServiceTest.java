@@ -7,7 +7,11 @@ import static org.mockito.Mockito.when;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.entity.BodyDiary;
+import Marshmello.MarshmelloWas.domain.checkin.entity.BodyRegion;
 import Marshmello.MarshmelloWas.domain.checkin.dto.ImageUrlResponse;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
 import Marshmello.MarshmelloWas.domain.checkin.entity.Image;
@@ -27,8 +31,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -38,6 +45,9 @@ class CheckInQueryServiceTest {
 
     @Autowired
     private CheckInQueryService service;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @Autowired
     private UserRepository userRepository;
@@ -112,6 +122,153 @@ class CheckInQueryServiceTest {
     }
 
     @Test
+    void returnsTheExactCountOfCurrentUsersCheckInsWithinTheRequestedMonth() {
+        User owner = userRepository.save(new User("count-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-first-day", true);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 17), "test/count-middle-day", false);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day", true);
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(3, 2));
+    }
+
+    @Test
+    void retrievesMonthlyCountsWithOnePreparedStatement() {
+        User owner = userRepository.save(new User("query-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-query-first", true);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 17), "test/count-query-middle", false);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-query-last", true);
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean statisticsEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        try {
+            MonthlyCheckInCountResponse response = service.getMonthlyCount(YearMonth.of(2026, 8));
+
+            assertThat(response).isEqualTo(new MonthlyCheckInCountResponse(3, 2));
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+        } finally {
+            statistics.clear();
+            statistics.setStatisticsEnabled(statisticsEnabled);
+        }
+    }
+
+    @Test
+    void excludesAnotherUsersCheckInsFromTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        User other = userRepository.save(new User("count-other", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 15), "test/count-owner", false);
+        saveCheckIn(other.getUserId(), LocalDate.of(2026, 8, 16), "test/count-other-user", true);
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 0));
+    }
+
+    @Test
+    void excludesPreviousMonthsCheckInsFromTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 7, 31), "test/count-previous-month", true);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 1), "test/count-current-month", false);
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 0));
+    }
+
+    @Test
+    void excludesNextMonthsCheckInsFromTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-current-month", false);
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 9, 1), "test/count-next-month", true);
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 0));
+    }
+
+    @Test
+    void includesTheLastDayOfTheMonthInTheMonthlyCount() {
+        User owner = userRepository.save(new User("count-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveCheckIn(owner.getUserId(), LocalDate.of(2026, 8, 31), "test/count-last-day", true);
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(1, 1));
+    }
+
+    @Test
+    void returnsZeroWhenTheRequestedMonthHasNoCheckIns() {
+        User owner = userRepository.save(new User("empty-count", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+
+        assertThat(service.getMonthlyCount(YearMonth.of(2026, 8)))
+                .isEqualTo(new MonthlyCheckInCountResponse(0, 0));
+    }
+
+    @Test
+    void returnsMostFrequentBodyRegionForTheCurrentUserInTheRequestedMonth() {
+        User owner = userRepository.save(new User("body-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.CHEST);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 15), BodyRegion.ABDOMEN);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+    }
+
+    @Test
+    void excludesAnotherUsersBodyDiariesFromTheMonthlyRegionCount() {
+        User owner = userRepository.save(new User("body-owner", null));
+        User other = userRepository.save(new User("body-other", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+        saveBodyDiary(other.getUserId(), LocalDate.of(2026, 8, 3), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(other.getUserId(), LocalDate.of(2026, 8, 4), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(other.getUserId(), LocalDate.of(2026, 8, 5), BodyRegion.RIGHT_LEG);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+    }
+
+    @Test
+    void excludesBodyDiariesOutsideTheRequestedMonth() {
+        User owner = userRepository.save(new User("body-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.RIGHT_LEG);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 7, 31), BodyRegion.ABDOMEN);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 9, 1), BodyRegion.ABDOMEN);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 8));
+    }
+
+    @Test
+    void returnsTheSmallestRegionCodeWhenMonthlyBodyDiaryCountsAreTied() {
+        User owner = userRepository.save(new User("body-owner", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 2), BodyRegion.PELVIS);
+        saveBodyDiary(owner.getUserId(), LocalDate.of(2026, 8, 7), BodyRegion.ABDOMEN);
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse((short) 2));
+    }
+
+    @Test
+    void returnsNullWhenTheRequestedMonthHasNoBodyDiaries() {
+        User owner = userRepository.save(new User("empty-region", null));
+        when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
+
+        assertThat(service.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .isEqualTo(new MostFrequentBodyRegionResponse(null));
+    }
+
+    @Test
     void createsReadUrlOnlyForOwnedAttachedImage() {
         User owner = userRepository.save(new User("url-owner", null));
         when(currentUserIdProvider.requireCurrentUserId()).thenReturn(owner.getUserId());
@@ -142,16 +299,29 @@ class CheckInQueryServiceTest {
     }
 
     private Image saveCheckIn(long userId, LocalDate date, String objectKey) {
-        return saveCheckIn(userId, date, objectKey, (short) 1);
+        return saveCheckIn(userId, date, objectKey, (short) 1, false);
     }
 
     private Image saveCheckIn(long userId, LocalDate date, String objectKey, short emotion) {
-        CheckIn checkIn = checkInRepository.save(new CheckIn(false, date, null, emotion, userId));
+        return saveCheckIn(userId, date, objectKey, emotion, false);
+    }
+
+    private Image saveCheckIn(long userId, LocalDate date, String objectKey, boolean achieved) {
+        return saveCheckIn(userId, date, objectKey, (short) 1, achieved);
+    }
+
+    private Image saveCheckIn(long userId, LocalDate date, String objectKey, short emotion, boolean achieved) {
+        CheckIn checkIn = checkInRepository.save(new CheckIn(achieved, date, null, emotion, userId));
         Image image = new Image(userId, objectKey, "image/png", Instant.now());
         image.attachTo(checkIn, userId);
         imageRepository.save(image);
         imageAnalysisRepository.save(new ImageAnalysis(image.id(), (short) 4));
         return image;
+    }
+
+    private void saveBodyDiary(long userId, LocalDate date, BodyRegion bodyRegion) {
+        CheckIn checkIn = checkInRepository.save(new CheckIn(false, date, null, (short) 1, userId));
+        bodyDiaryRepository.save(new BodyDiary(bodyRegion, checkIn, null, null));
     }
 
     private void assertImageNotFound(long imageId) {

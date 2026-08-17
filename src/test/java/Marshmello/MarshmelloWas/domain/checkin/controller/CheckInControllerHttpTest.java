@@ -9,11 +9,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInCreateRequest;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInEmotionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInResponse;
 import Marshmello.MarshmelloWas.domain.checkin.dto.CheckInSummaryResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MonthlyCheckInCountResponse;
+import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionResponse;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
 import java.time.LocalDate;
@@ -133,6 +136,87 @@ class CheckInControllerHttpTest {
                         .queryParam("month", "2026-8")
                         .with(oidcLogin()))
                 .andExpect(status().isBadRequest());
+        verifyNoInteractions(checkInQueryService);
+    }
+
+    @Test
+    void returnsMonthlyCheckInCount() throws Exception {
+        when(checkInQueryService.getMonthlyCount(YearMonth.of(2026, 8)))
+                .thenReturn(new MonthlyCheckInCountResponse(3, 2));
+
+        mockMvc.perform(get("/api/check-ins/count")
+                        .queryParam("month", "2026-08")
+                        .with(oidcLogin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(3))
+                .andExpect(jsonPath("$.achievedCount").value(2));
+    }
+
+    @Test
+    void requiresAValidYearMonthForMonthlyCount() throws Exception {
+        mockMvc.perform(get("/api/check-ins/count").with(oidcLogin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        mockMvc.perform(get("/api/check-ins/count")
+                        .queryParam("month", "2026-8")
+                        .with(oidcLogin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        verifyNoInteractions(checkInQueryService);
+    }
+
+    @Test
+    void requiresAuthenticationForMonthlyCount() throws Exception {
+        mockMvc.perform(get("/api/check-ins/count")
+                        .queryParam("month", "2026-08"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(checkInQueryService);
+    }
+
+    @Test
+    void returnsMostFrequentMonthlyBodyDiaryRegionWithoutItsCount() throws Exception {
+        when(checkInQueryService.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .thenReturn(new MostFrequentBodyRegionResponse((short) 2));
+
+        mockMvc.perform(get("/api/check-ins/body-diaries/top-region")
+                        .queryParam("month", "2026-08")
+                        .with(oidcLogin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bodyRegion").value(2))
+                .andExpect(jsonPath("$.count").doesNotExist());
+    }
+
+    @Test
+    void returnsAnExplicitNullBodyRegionWhenTheMonthHasNoBodyDiaries() throws Exception {
+        when(checkInQueryService.getMostFrequentBodyRegion(YearMonth.of(2026, 8)))
+                .thenReturn(new MostFrequentBodyRegionResponse(null));
+
+        mockMvc.perform(get("/api/check-ins/body-diaries/top-region")
+                        .queryParam("month", "2026-08")
+                        .with(oidcLogin()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"bodyRegion\":null}"))
+                .andExpect(jsonPath("$.count").doesNotExist());
+    }
+
+    @Test
+    void requiresAValidYearMonthForTopBodyDiaryRegionLookup() throws Exception {
+        mockMvc.perform(get("/api/check-ins/body-diaries/top-region").with(oidcLogin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        mockMvc.perform(get("/api/check-ins/body-diaries/top-region")
+                        .queryParam("month", "2026-8")
+                        .with(oidcLogin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        verifyNoInteractions(checkInQueryService);
+    }
+
+    @Test
+    void requiresAuthenticationForTopBodyDiaryRegionLookup() throws Exception {
+        mockMvc.perform(get("/api/check-ins/body-diaries/top-region")
+                        .queryParam("month", "2026-08"))
+                .andExpect(status().isUnauthorized());
         verifyNoInteractions(checkInQueryService);
     }
 
