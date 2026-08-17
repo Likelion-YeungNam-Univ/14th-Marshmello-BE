@@ -39,6 +39,8 @@ services:
       OIDC_GOOGLE_OFFLINE_ACCESS: ${OIDC_GOOGLE_OFFLINE_ACCESS:-false}
       SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     secrets:
       - source: postgres_password
         target: spring.datasource.password
