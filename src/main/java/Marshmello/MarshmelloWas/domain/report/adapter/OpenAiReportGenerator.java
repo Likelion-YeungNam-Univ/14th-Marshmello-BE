@@ -19,7 +19,7 @@ import java.util.Objects;
 public final class OpenAiReportGenerator implements ReportGenerator {
 
     private static final String INSTRUCTIONS = "입력된 점수는 데이비스 점수이며 높을수록 튼살이 많음을 의미합니다. "
-            + "날짜별 점수 변화만 내부 근거로 사용해 사용자의 고민에 공감하고 마음을 안정시키는 한국어 멘트를 작성하세요. "
+            + "날짜별 점수 변화만 내부 근거로 사용해 사용자의 변화와 고민을 추론하여 명확하되 공감되며 마음을 안정시키는 한국어 멘트를 작성하세요. "
             + "결과에는 점수, 수치, 데이비스라는 표현을 노출하지 말고 제공되지 않은 증상이나 사실을 추측하지 마세요. "
             + "의료적 진단이나 치료 효과를 단정하지 말고 이모지 없이 공백과 문장부호를 포함해 60자 이상 70자 이하로 작성하세요.";
 
