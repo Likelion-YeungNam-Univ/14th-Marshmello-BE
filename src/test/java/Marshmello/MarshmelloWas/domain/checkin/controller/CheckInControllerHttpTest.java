@@ -159,6 +159,7 @@ class CheckInControllerHttpTest {
                         .queryParam("month", "2026-08")
                         .with(oidcLogin()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestMonth").value("2026-08"))
                 .andExpect(jsonPath("$.count").value(3))
                 .andExpect(jsonPath("$.achievedCount").value(2));
     }
