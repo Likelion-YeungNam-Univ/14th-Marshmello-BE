@@ -40,6 +40,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "app.login-success-url=http://localhost:5173",
+                "app.cors.allowed-origins=http://localhost:5173,https://dev.dia8lj4ohc0fh.amplifyapp.com",
                 "spring.security.oauth2.client.provider.test-provider.user-info-uri="
         })
 @Import(SecurityHttpQaTest.OAuthCallbackTestConfiguration.class)
@@ -149,18 +150,97 @@ class SecurityHttpQaTest {
                 .hasValue("http://localhost:5173");
     }
 
+    @Test
+    void redirectsOauthLoginSuccessToTheFrontendThatStartedLogin() throws Exception {
+        HttpClient amplifyClient = newHttpClient();
+        HttpResponse<String> amplifyAuthorization = get(
+                amplifyClient,
+                "/oauth2/authorization/oidc",
+                null,
+                "https://dev.dia8lj4ohc0fh.amplifyapp.com/login");
+        HttpResponse<String> amplifyCallback = get(
+                amplifyClient,
+                callbackPath(amplifyAuthorization),
+                null,
+                null);
+
+        HttpClient localhostClient = newHttpClient();
+        HttpResponse<String> localhostAuthorization = get(
+                localhostClient,
+                "/oauth2/authorization/oidc",
+                null,
+                "http://localhost:5173/login");
+        HttpResponse<String> localhostCallback = get(
+                localhostClient,
+                callbackPath(localhostAuthorization),
+                null,
+                null);
+
+        assertThat(amplifyCallback.statusCode()).isEqualTo(302);
+        assertThat(amplifyCallback.headers().firstValue(HttpHeaders.LOCATION))
+                .hasValue("https://dev.dia8lj4ohc0fh.amplifyapp.com");
+        assertThat(localhostCallback.statusCode()).isEqualTo(302);
+        assertThat(localhostCallback.headers().firstValue(HttpHeaders.LOCATION))
+                .hasValue("http://localhost:5173");
+    }
+
+    @Test
+    void ignoresUnconfiguredLoginOriginAndUsesConfiguredFallback() throws Exception {
+        HttpClient attackerClient = newHttpClient();
+        HttpResponse<String> authorization = get(
+                attackerClient,
+                "/oauth2/authorization/oidc",
+                null,
+                "https://attacker.example.test/login");
+        HttpResponse<String> callback = get(
+                attackerClient,
+                callbackPath(authorization),
+                null,
+                null);
+
+        assertThat(callback.statusCode()).isEqualTo(302);
+        assertThat(callback.headers().firstValue(HttpHeaders.LOCATION))
+                .hasValue("http://localhost:5173");
+    }
+
+    private String callbackPath(HttpResponse<String> authorization) {
+        String state = URI.create(authorization.headers().firstValue(HttpHeaders.LOCATION).orElseThrow())
+                .getRawQuery()
+                .replaceFirst(".*(?:^|&)state=([^&]+).*", "$1");
+        return "/login/oauth2/code/oidc?code=test-code&state=" + state;
+    }
+
     private HttpResponse<String> get(String path) throws Exception {
         return get(path, null);
     }
 
     private HttpResponse<String> get(String path, String origin) throws Exception {
+        return get(httpClient, path, origin, null);
+    }
+
+    private HttpResponse<String> get(
+            HttpClient client,
+            String path,
+            String origin,
+            String referer
+    ) throws Exception {
         HttpRequest.Builder request = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + path))
                 .GET();
         if (origin != null) {
             request.header(HttpHeaders.ORIGIN, origin);
         }
-        return httpClient.send(request.build(), HttpResponse.BodyHandlers.ofString());
+        if (referer != null) {
+            request.header(HttpHeaders.REFERER, referer);
+        }
+        return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpClient newHttpClient() {
+        return HttpClient.newBuilder()
+                .cookieHandler(new CookieManager())
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
     }
 
     private HttpResponse<String> options(String path, String origin) throws Exception {

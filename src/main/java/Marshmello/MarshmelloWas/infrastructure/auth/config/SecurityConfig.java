@@ -1,7 +1,16 @@
 package Marshmello.MarshmelloWas.infrastructure.auth.config;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import Marshmello.MarshmelloWas.domain.auth.adapter.ModelGateAuthorizationManager;
 import Marshmello.MarshmelloWas.domain.auth.adapter.ProvisioningOidcUserService;
@@ -32,6 +41,9 @@ import org.springframework.security.web.authentication.logout.HttpStatusReturnin
 @Configuration
 public class SecurityConfig {
 
+    private static final String LOGIN_SUCCESS_URL_ATTRIBUTE =
+            SecurityConfig.class.getName() + ".loginSuccessUrl";
+
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -41,10 +53,12 @@ public class SecurityConfig {
             ModelGateAuthorizationManager modelGateAuthorizationManager,
             ProvisioningOidcUserService provisioningOidcUserService,
             OidcSecurityProperties oidcProperties,
+            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins,
             @Value("${app.login-success-url:/}") String loginSuccessUrl
     ) throws Exception {
+        Set<String> allowedLoginOrigins = parseOrigins(allowedOrigins);
         OAuth2AuthorizationRequestResolver authorizationRequestResolver =
-            authorizationRequestResolver(clientRegistrationRepository, oidcProperties);
+            authorizationRequestResolver(clientRegistrationRepository, oidcProperties, allowedLoginOrigins);
 
         http
             .cors(Customizer.withDefaults())
@@ -78,7 +92,18 @@ public class SecurityConfig {
                     .authorizationRequestRepository(authorizationRequestRepository)
                     .authorizationRequestResolver(authorizationRequestResolver)
                 )
-                .defaultSuccessUrl(loginSuccessUrl, true)
+                .successHandler((request, response, authentication) -> {
+                    var session = request.getSession(false);
+                    String selectedLoginSuccessUrl = session == null
+                            ? null
+                            : (String) session.getAttribute(LOGIN_SUCCESS_URL_ATTRIBUTE);
+                    if (session != null) {
+                        session.removeAttribute(LOGIN_SUCCESS_URL_ATTRIBUTE);
+                    }
+                    response.sendRedirect(selectedLoginSuccessUrl == null
+                            ? loginSuccessUrl
+                            : selectedLoginSuccessUrl);
+                })
             )
             .oauth2Client(client -> client
                 .authorizedClientRepository(authorizedClientRepository)
@@ -138,9 +163,10 @@ public class SecurityConfig {
 
     private OAuth2AuthorizationRequestResolver authorizationRequestResolver(
             ClientRegistrationRepository clientRegistrationRepository,
-            OidcSecurityProperties oidcProperties
+            OidcSecurityProperties oidcProperties,
+            Set<String> allowedLoginOrigins
     ) {
-        DefaultOAuth2AuthorizationRequestResolver resolver =
+        DefaultOAuth2AuthorizationRequestResolver delegate =
             new DefaultOAuth2AuthorizationRequestResolver(
                 clientRegistrationRepository,
                 "/oauth2/authorization"
@@ -158,7 +184,100 @@ public class SecurityConfig {
             customizer = customizer.andThen(googleOffline);
         }
 
-        resolver.setAuthorizationRequestCustomizer(customizer);
-        return resolver;
+        delegate.setAuthorizationRequestCustomizer(customizer);
+        return new OriginAwareAuthorizationRequestResolver(delegate, allowedLoginOrigins);
+    }
+
+    private static Set<String> parseOrigins(String rawOrigins) {
+        return Arrays.stream(rawOrigins.split(",", -1))
+                .map(String::trim)
+                .map(SecurityConfig::originOf)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static String originOf(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(value.trim());
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null
+                    || host == null
+                    || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+                return null;
+            }
+            return new URI(
+                    scheme.toLowerCase(Locale.ROOT),
+                    null,
+                    host.toLowerCase(Locale.ROOT),
+                    uri.getPort(),
+                    null,
+                    null,
+                    null).toString();
+        } catch (IllegalArgumentException | URISyntaxException ignored) {
+            return null;
+        }
+    }
+
+    private static final class OriginAwareAuthorizationRequestResolver
+            implements OAuth2AuthorizationRequestResolver {
+
+        private final OAuth2AuthorizationRequestResolver delegate;
+        private final Set<String> allowedLoginOrigins;
+
+        private OriginAwareAuthorizationRequestResolver(
+                OAuth2AuthorizationRequestResolver delegate,
+                Set<String> allowedLoginOrigins
+        ) {
+            this.delegate = delegate;
+            this.allowedLoginOrigins = allowedLoginOrigins;
+        }
+
+        @Override
+        public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
+            return decorate(request, delegate.resolve(request));
+        }
+
+        @Override
+        public OAuth2AuthorizationRequest resolve(
+                HttpServletRequest request,
+                String clientRegistrationId
+        ) {
+            return decorate(request, delegate.resolve(request, clientRegistrationId));
+        }
+
+        private OAuth2AuthorizationRequest decorate(
+                HttpServletRequest request,
+                OAuth2AuthorizationRequest authorizationRequest
+        ) {
+            if (authorizationRequest == null) {
+                return null;
+            }
+
+            String loginSuccessUrl = findAllowedOrigin(request);
+            if (loginSuccessUrl == null) {
+                request.getSession().removeAttribute(LOGIN_SUCCESS_URL_ATTRIBUTE);
+                return authorizationRequest;
+            }
+
+            request.getSession().setAttribute(LOGIN_SUCCESS_URL_ATTRIBUTE, loginSuccessUrl);
+            return authorizationRequest;
+        }
+
+        private String findAllowedOrigin(HttpServletRequest request) {
+            String[] candidates = {
+                    request.getHeader("Origin"),
+                    request.getHeader("Referer")
+            };
+            return Arrays.stream(candidates)
+                    .map(SecurityConfig::originOf)
+                    .filter(Objects::nonNull)
+                    .filter(allowedLoginOrigins::contains)
+                    .findFirst()
+                    .orElse(null);
+        }
     }
 }
