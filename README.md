@@ -1,4 +1,4 @@
-# 14th-Marshmello-was
+gi# 14th-Marshmello-was
 
 |                              BE / Leader                             |                                   BE                                   |                                   FE                                  |                                      FE                                      |                                   FE                                  |                                     P&D                                     |
 | :------------------------------------------------------------------: | :--------------------------------------------------------------------: | :-------------------------------------------------------------------: | :--------------------------------------------------------------------------: | :-------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
@@ -62,6 +62,6 @@ const mutationHeaders = {
 
 로그인은 최상위 이동으로 `http://localhost:8080/oauth2/authorization/oidc`를 여세요. 로그인 전 보호 API의 `401`은 정상입니다. `APP_CORS_ALLOWED_ORIGINS`에는 쉼표로 구분한 정확한 Origin만 지정하고 와일드카드는 사용하지 마세요. 절대 `mode: 'no-cors'`를 사용하지 말고, 인증 토큰을 클라이언트에 저장하지 마세요. 인증은 세션 쿠키 흐름을 사용하세요.
 
-로컬 프런트엔드에서 EC2 인증을 테스트할 때 API 주소는 `https://marshmello-be.duckdns.org`를 사용하고 모든 요청에 `credentials: 'include'`를 적용하세요. EC2 배포에는 `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173`, `APP_LOGIN_SUCCESS_URL=http://localhost:5173`, `SESSION_COOKIE_SAME_SITE=none`, `SESSION_COOKIE_SECURE=true`가 필요하며, OAuth 공급자에는 `https://marshmello-be.duckdns.org/login/oauth2/code/oidc`를 콜백 URL로 등록해야 합니다.
+로컬 프런트엔드에서 EC2 인증을 테스트할 때 API 주소는 `https://marshmello-be.duckdns.org`를 사용하고 모든 요청에 `credentials: 'include'`를 적용하세요. EC2 배포에서 로컬 프런트엔드와 Amplify 프런트엔드를 모두 허용하려면 `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,https://dev.dia8lj4ohc0fh.amplifyapp.com`, `APP_LOGIN_SUCCESS_URL=https://dev.dia8lj4ohc0fh.amplifyapp.com`, `SESSION_COOKIE_SAME_SITE=none`, `SESSION_COOKIE_SECURE=true`를 설정합니다. 로그인 시작 요청의 허용된 `Origin` 또는 `Referer`에 따라 로그인 완료 후 해당 프런트엔드로 돌아가며, 출처를 확인할 수 없으면 `APP_LOGIN_SUCCESS_URL`로 돌아갑니다. OAuth 공급자에는 `https://marshmello-be.duckdns.org/login/oauth2/code/oidc`를 콜백 URL로 등록해야 합니다.
 
 ---
