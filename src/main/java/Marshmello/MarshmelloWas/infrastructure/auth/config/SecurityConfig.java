@@ -36,7 +36,14 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepo
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.logout.CompositeLogoutHandler;
+import org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.security.web.csrf.CsrfLogoutHandler;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 
 @Configuration
 public class SecurityConfig {
@@ -50,6 +57,7 @@ public class SecurityConfig {
             ClientRegistrationRepository clientRegistrationRepository,
             OAuth2AuthorizedClientRepository authorizedClientRepository,
             AuthorizationRequestRepository<OAuth2AuthorizationRequest> authorizationRequestRepository,
+            CsrfTokenRepository csrfTokenRepository,
             ModelGateAuthorizationManager modelGateAuthorizationManager,
             ProvisioningOidcUserService provisioningOidcUserService,
             OidcSecurityProperties oidcProperties,
@@ -62,6 +70,7 @@ public class SecurityConfig {
 
         http
             .cors(Customizer.withDefaults())
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
             .authorizeHttpRequests(authorize -> authorize
                     .requestMatchers(
                             "/actuator/health",
@@ -128,6 +137,19 @@ public class SecurityConfig {
 
         // CSRF remains enabled. POST /logout and any future model POST must include the token.
         return http.build();
+    }
+
+    @Bean
+    CsrfTokenRepository csrfTokenRepository() {
+        return new HttpSessionCsrfTokenRepository();
+    }
+
+    @Bean
+    LogoutHandler localLogoutHandler(CsrfTokenRepository csrfTokenRepository) {
+        return new CompositeLogoutHandler(
+                new CsrfLogoutHandler(csrfTokenRepository),
+                new SecurityContextLogoutHandler(),
+                new CookieClearingLogoutHandler("JSESSIONID"));
     }
 
     @Bean

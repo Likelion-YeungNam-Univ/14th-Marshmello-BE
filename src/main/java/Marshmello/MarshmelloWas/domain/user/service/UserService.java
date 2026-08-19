@@ -45,4 +45,9 @@ public class UserService {
                 user.getExpectedDeliveryDate(),
                 user.isProfileCompleted());
     }
+
+    @Transactional
+    public void deleteUser() {
+        userRepository.delete(getCurrentUser());
+    }
 }

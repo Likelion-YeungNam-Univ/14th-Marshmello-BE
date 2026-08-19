@@ -1,10 +1,12 @@
 package Marshmello.MarshmelloWas.domain.user.controller;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,6 +16,7 @@ import Marshmello.MarshmelloWas.domain.auth.repository.SocialAccountRepository;
 import Marshmello.MarshmelloWas.domain.auth.service.OidcUserProvisioningService;
 import Marshmello.MarshmelloWas.domain.user.entity.User;
 import Marshmello.MarshmelloWas.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +41,9 @@ class UserControllerIdentityHttpTest {
 
     @Autowired
     private OidcUserProvisioningService provisioningService;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     void returnsPendingProfileAfterFirstOidcLogin() throws Exception {
@@ -111,5 +117,24 @@ class UserControllerIdentityHttpTest {
                         .with(oidcLogin().idToken(token -> token.subject("shared-subject"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+    }
+
+    @Test
+    void deletesCurrentUserAndCascadesSocialAccount() throws Exception {
+        User user = userRepository.save(new User("탈퇴사용자", null));
+        SocialAccountId accountId = new SocialAccountId("test", "delete-user");
+        socialAccountRepository.save(new SocialAccount(accountId, user.getUserId()));
+
+        mockMvc.perform(delete("/api/user")
+                        .with(oidcLogin().idToken(token -> token.subject("delete-user")))
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(userRepository.findById(user.getUserId()))
+                .isEmpty();
+        assertThat(socialAccountRepository.findById(accountId))
+                .isEmpty();
     }
 }
