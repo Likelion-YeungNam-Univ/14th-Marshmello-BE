@@ -10,11 +10,26 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     Optional<CheckIn> findByCheckInIdAndUserId(Long checkInId, Long userId);
+
+    @Modifying
+    @Query("""
+            delete from CheckIn checkIn
+            where checkIn.checkInId = :checkInId
+              and checkIn.userId = :userId
+              and checkIn.checkInDate = :checkInDate
+            """)
+    int deleteByCheckInIdAndUserIdAndCheckInDate(
+            @Param("checkInId") long checkInId,
+            @Param("userId") long userId,
+            @Param("checkInDate") LocalDate checkInDate
+    );
 
     boolean existsByUserIdAndCheckInDate(Long userId, LocalDate checkInDate);
 
