@@ -3,6 +3,7 @@ package Marshmello.MarshmelloWas.domain.user.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import Marshmello.MarshmelloWas.domain.auth.port.CurrentUserIdProvider;
@@ -60,5 +61,15 @@ class UserServiceTest {
         assertThatThrownBy(userService::getProfile)
                 .isInstanceOfSatisfying(ApiException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Test
+    void deletesCurrentUser() {
+        User user = new User("마시멜로", null);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        userService.deleteUser();
+
+        verify(userRepository).delete(user);
     }
 }

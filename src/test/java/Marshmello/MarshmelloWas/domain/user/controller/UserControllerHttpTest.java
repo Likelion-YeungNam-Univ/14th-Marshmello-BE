@@ -1,5 +1,6 @@
 package Marshmello.MarshmelloWas.domain.user.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -7,6 +8,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -108,5 +111,32 @@ class UserControllerHttpTest {
                                 }
                                 """))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deletesCurrentUserAndInvalidatesSession() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+
+        mockMvc.perform(delete("/api/user")
+                        .session(session)
+                        .with(user("subject"))
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        assertThat(session.isInvalid()).isTrue();
+        verify(userService).deleteUser();
+    }
+
+    @Test
+    void requiresCsrfTokenForDeletion() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+
+        mockMvc.perform(delete("/api/user")
+                        .session(session)
+                        .with(user("subject")))
+                .andExpect(status().isForbidden());
+
+        assertThat(session.isInvalid()).isFalse();
+        verifyNoInteractions(userService);
     }
 }
