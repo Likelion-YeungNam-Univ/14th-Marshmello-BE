@@ -46,7 +46,7 @@ public final class OpenAiReportGenerator implements ReportGenerator {
                             .input(OpenAiStructuredResponseSupport.serialize(objectMapper, new ReportInput(points)))
                             .text(ReportStructuredOutput.class)
                             .store(false)
-                            .maxOutputTokens(200)
+                            .maxOutputTokens(1000)
                             .build();
             StructuredResponse<ReportStructuredOutput> response = client.responses().create(params);
             ReportStructuredOutput output =

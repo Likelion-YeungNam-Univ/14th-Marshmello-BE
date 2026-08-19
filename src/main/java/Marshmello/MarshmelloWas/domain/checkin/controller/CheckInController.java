@@ -8,20 +8,18 @@ import Marshmello.MarshmelloWas.domain.checkin.dto.MostFrequentBodyRegionRespons
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInQueryService;
 import Marshmello.MarshmelloWas.domain.checkin.service.CheckInService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.format.annotation.DateTimeFormat;
 
 @RestController
+@Validated
 @RequestMapping("/api/check-ins")
 public class CheckInController {
 
@@ -75,5 +73,14 @@ public class CheckInController {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
         return checkInQueryService.getMostFrequentBodyRegion(month);
+    }
+
+    @DeleteMapping("/{checkInId}")
+    public ResponseEntity<Void> delete(
+            @PathVariable @Positive long checkInId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        checkInService.delete(checkInId, date);
+        return ResponseEntity.noContent().build();
     }
 }

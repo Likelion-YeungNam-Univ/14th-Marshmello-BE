@@ -81,6 +81,15 @@ public class CheckInService {
         return toResponse(checkIn, image, bodyDiaries);
     }
 
+    @Transactional
+    public void delete(long checkInId, LocalDate date) {
+        long userId = currentUserIdProvider.requireCurrentUserId();
+        int deletedCount = checkInRepository.deleteByCheckInIdAndUserIdAndCheckInDate(checkInId, userId, date);
+        if (deletedCount == 0) {
+            throw new ApiException(ErrorCode.CHECK_IN_NOT_FOUND);
+        }
+    }
+
     private void validateDistinctBodyRegions(List<BodyDiaryRequest> bodyDiaries) {
         Set<Short> bodyRegions = new HashSet<>();
         boolean duplicated = bodyDiaries.stream()
