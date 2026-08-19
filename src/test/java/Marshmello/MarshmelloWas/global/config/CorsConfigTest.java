@@ -42,7 +42,7 @@ class CorsConfigTest {
         Map<String, CorsConfiguration> registrations = registry.registrations();
         CorsConfiguration registration = registrations.get("/api/**");
 
-        assertThat(registrations).containsOnlyKeys("/api/**");
+        assertThat(registrations).containsOnlyKeys("/api/**", "/logout");
         assertThat(registration.getAllowedOrigins()).containsExactly("http://localhost:5173");
         assertThat(registration.getAllowedMethods()).containsExactly(
                 HttpMethod.GET.name(),
