@@ -11,7 +11,7 @@ class CareCardGeneratorTest {
     @Test
     void acceptsMaximumLengthsIncludingSpaces() {
         String actionName = "가 ".repeat(14) + "가나";
-        String actionReason = "나 ".repeat(49) + "나나";
+        String actionReason = "나 ".repeat(74) + "나나";
 
         assertThatCode(() -> new CareCardGeneratedText(actionName, actionReason))
                 .doesNotThrowAnyException();
@@ -27,11 +27,11 @@ class CareCardGeneratorTest {
     }
 
     @Test
-    void rejectsActionReasonLongerThanOneHundredCharactersIncludingSpaces() {
-        String actionReason = "나 ".repeat(50) + "나";
+    void rejectsActionReasonLongerThanOneHundredFiftyCharactersIncludingSpaces() {
+        String actionReason = "나 ".repeat(75) + "나";
 
         assertThatThrownBy(() -> new CareCardGeneratedText("행동", actionReason))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("actionReason must not exceed 100 characters");
+                .hasMessage("actionReason must not exceed 150 characters");
     }
 }
