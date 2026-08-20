@@ -15,8 +15,8 @@ public interface CareCardGenerator {
             if (actionName.length() > 30) {
                 throw new IllegalArgumentException("actionName must not exceed 30 characters");
             }
-            if (actionReason.length() > 100) {
-                throw new IllegalArgumentException("actionReason must not exceed 100 characters");
+            if (actionReason.length() > 150) {
+                throw new IllegalArgumentException("actionReason must not exceed 150 characters");
             }
         }
 

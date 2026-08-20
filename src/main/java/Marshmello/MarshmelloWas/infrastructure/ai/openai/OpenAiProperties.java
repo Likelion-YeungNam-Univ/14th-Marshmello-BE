@@ -11,7 +11,7 @@ public class OpenAiProperties {
 
     private String apiKey = "";
     private String model = DEFAULT_MODEL;
-    private Duration timeout = Duration.ofSeconds(30);
+    private Duration timeout = Duration.ofSeconds(50);
 
     public String getApiKey() {
         return apiKey;
@@ -46,6 +46,6 @@ public class OpenAiProperties {
     }
 
     Duration effectiveTimeout() {
-        return timeout == null ? Duration.ofSeconds(30) : timeout;
+        return timeout == null ? Duration.ofSeconds(50) : timeout;
     }
 }
