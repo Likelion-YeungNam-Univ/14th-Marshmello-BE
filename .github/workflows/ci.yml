@@ -68,7 +68,7 @@ jobs:
           BUILD_ID: ${{ github.sha }}
           OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
           OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
-          OIDC_ISSUER_URI: https://issuer.example.test
+          OIDC_ISSUER_URI: https://accounts.google.com
           APP_CORS_ALLOWED_ORIGINS: https://app.example.test
           APP_LOGIN_SUCCESS_URL: https://app.example.test/signed-in
           AWS_REGION: ap-northeast-2
