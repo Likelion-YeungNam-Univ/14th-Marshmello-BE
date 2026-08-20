@@ -17,7 +17,7 @@ public final class OpenAiCareCardGenerator implements CareCardGenerator {
 
     private static final String INSTRUCTIONS = "사용자가 실천할 수 있는 짧고 구체적인 돌봄 행동을 한국어로 작성하세요. "
             + "actionName은 공백 포함 30자 이하의 행동 제목이어야 합니다. "
-            + "actionReason은 공백 포함 100자 이하이고, 추천 행동이 도움이 되는 이유를 category를 바탕으로 추론해 작성해야 합니다.";
+            + "actionReason은 공백 포함 100자 이하로 최대한 100자에 가깝게(90자~100자) 작성하고, 추천 행동이 도움이 되는 이유를 category를 바탕으로 추론해 작성해야 합니다.";
 
     private final OpenAIClient client;
     private final String model;
