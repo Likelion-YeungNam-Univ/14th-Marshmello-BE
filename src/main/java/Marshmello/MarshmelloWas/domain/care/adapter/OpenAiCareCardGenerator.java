@@ -8,6 +8,8 @@ import Marshmello.MarshmelloWas.infrastructure.ai.openai.OpenAiStructuredRespons
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.errors.OpenAIException;
+import com.openai.models.Reasoning;
+import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.StructuredResponse;
 import com.openai.models.responses.StructuredResponseCreateParams;
 
@@ -42,7 +44,8 @@ public final class OpenAiCareCardGenerator implements CareCardGenerator {
                             ))
                             .text(CareCardStructuredOutput.class)
                             .store(false)
-                            .maxOutputTokens(400)
+                            .reasoning(Reasoning.builder().effort(ReasoningEffort.LOW).build())
+                            .maxOutputTokens(1200)
                             .build();
             StructuredResponse<CareCardStructuredOutput> response = client.responses().create(params);
             CareCardStructuredOutput output =
