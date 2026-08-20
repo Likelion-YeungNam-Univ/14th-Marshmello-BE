@@ -31,13 +31,14 @@ public class CheckInController {
         this.checkInQueryService = checkInQueryService;
     }
 
-    @PostMapping
+    @PostMapping(params = "!date")
     public ResponseEntity<CheckInResponse> create(
             @Valid @RequestBody CheckInCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(checkInService.create(request));
     }
 
+    /*
     @PostMapping(params = "date")
     public ResponseEntity<CheckInResponse> createForDate(
             @Valid @RequestBody CheckInCreateRequest request,
@@ -45,6 +46,7 @@ public class CheckInController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(checkInService.create(request, date));
     }
+    */
 
     @GetMapping
     public List<CheckInResponse> getByDate(

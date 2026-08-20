@@ -11,8 +11,10 @@ services:
         BUILD_ID: ${BUILD_ID:?BUILD_ID is required}
         org.opencontainers.image.revision: ${BUILD_ID:?BUILD_ID is required}
     ports:
-      - 0.0.0.0:${APP_PORT:?APP_PORT is required}:8080
-      - 0.0.0.0:5174:5174
+      - target: 8080
+        published: "${APP_PORT:?APP_PORT is required}"
+        host_ip: 127.0.0.1
+        protocol: tcp
     environment:
       eureka.client.enabled: "false"
       spring.cloud.discovery.enabled: "false"
@@ -24,7 +26,7 @@ services:
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
       AWS_EC2_METADATA_V1_DISABLED: "true"
 
-      OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:-https://accounts.google.com}
+      OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:?OIDC_ISSUER_URI is required}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?OIDC_CLIENT_ID is required}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?OIDC_CLIENT_SECRET is required}
       OIDC_SCOPES: ${OIDC_SCOPES:-openid,email}
@@ -33,8 +35,8 @@ services:
       APP_ALLOWED_EMAIL_DOMAINS: ${APP_ALLOWED_EMAIL_DOMAINS:-}
       APP_ALLOWED_SUBJECTS: ${APP_ALLOWED_SUBJECTS:-}
       APP_REQUIRE_VERIFIED_EMAIL: ${APP_REQUIRE_VERIFIED_EMAIL:-true}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
-      APP_LOGIN_SUCCESS_URL: ${APP_LOGIN_SUCCESS_URL:-/}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:?APP_CORS_ALLOWED_ORIGINS is required}
+      APP_LOGIN_SUCCESS_URL: ${APP_LOGIN_SUCCESS_URL:?APP_LOGIN_SUCCESS_URL is required}
 
       OIDC_GOOGLE_OFFLINE_ACCESS: ${OIDC_GOOGLE_OFFLINE_ACCESS:-false}
       SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
