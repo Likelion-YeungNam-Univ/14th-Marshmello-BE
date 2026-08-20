@@ -83,6 +83,6 @@ class OpenAiGeneratorBoundaryTest {
 
         assertThat(params.rawParams().reasoning().orElseThrow().effort())
                 .contains(ReasoningEffort.LOW);
-        assertThat(params.rawParams().maxOutputTokens()).contains(1200L);
+        assertThat(params.rawParams().maxOutputTokens()).contains(2500L);
     }
 }
