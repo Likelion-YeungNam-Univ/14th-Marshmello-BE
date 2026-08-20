@@ -12,6 +12,10 @@ import Marshmello.MarshmelloWas.domain.care.adapter.CareCardStructuredOutput;
 import Marshmello.MarshmelloWas.domain.care.dto.CareCardGenerationRequest;
 import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator.CareCardGenerationException;
 import Marshmello.MarshmelloWas.domain.report.adapter.OpenAiReportGenerator;
+import Marshmello.MarshmelloWas.domain.report.adapter.ReportStructuredOutput;
+import Marshmello.MarshmelloWas.domain.report.dto.ReportGenerationRequest;
+import Marshmello.MarshmelloWas.domain.report.dto.ReportTrendPoint;
+import Marshmello.MarshmelloWas.domain.report.port.ReportGenerator.GenerationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
@@ -20,6 +24,8 @@ import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.StructuredResponseCreateParams;
 import com.openai.services.blocking.ResponseService;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.util.List;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.junit.jupiter.api.Test;
@@ -83,6 +89,34 @@ class OpenAiGeneratorBoundaryTest {
 
         assertThat(params.rawParams().reasoning().orElseThrow().effort())
                 .contains(ReasoningEffort.LOW);
-        assertThat(params.rawParams().maxOutputTokens()).contains(300000L);
+        assertThat(params.rawParams().maxOutputTokens()).contains(5000L);
+    }
+
+    @Test
+    void requestsReportWithSufficientOutputBudget() {
+        OpenAIClient client = mock(OpenAIClient.class);
+        ResponseService responses = mock(ResponseService.class);
+        when(client.responses()).thenReturn(responses);
+        when(responses.create(ArgumentMatchers
+                .<StructuredResponseCreateParams<ReportStructuredOutput>>any()))
+                .thenThrow(new OpenAIIoException("test failure", new IOException("test failure")));
+        OpenAiReportGenerator generator = new OpenAiReportGenerator(
+                client,
+                "gpt-5.6-luna",
+                new ObjectMapper().findAndRegisterModules()
+        );
+        ReportGenerationRequest request = new ReportGenerationRequest(List.of(
+                new ReportTrendPoint(LocalDate.of(2026, 8, 1), (short) 1),
+                new ReportTrendPoint(LocalDate.of(2026, 8, 2), (short) 2)
+        ));
+
+        assertThatThrownBy(() -> generator.generate(request))
+                .isInstanceOf(GenerationException.class);
+
+        ArgumentCaptor<StructuredResponseCreateParams<ReportStructuredOutput>> captor =
+                ArgumentCaptor.captor();
+        verify(responses).create(captor.capture());
+
+        assertThat(captor.getValue().rawParams().maxOutputTokens()).contains(5000L);
     }
 }
