@@ -20,6 +20,7 @@ import Marshmello.MarshmelloWas.domain.care.entity.CareCard;
 import Marshmello.MarshmelloWas.domain.care.entity.UserActionFeedbackId;
 import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator;
 import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator.CareCardGeneratedText;
+import Marshmello.MarshmelloWas.domain.care.port.CareCardGenerator.CareCardGenerationException;
 import Marshmello.MarshmelloWas.domain.care.repository.CareCardRepository;
 import Marshmello.MarshmelloWas.domain.care.repository.UserActionFeedbackRepository;
 import Marshmello.MarshmelloWas.domain.checkin.entity.CheckIn;
@@ -30,7 +31,11 @@ import Marshmello.MarshmelloWas.domain.user.entity.User;
 import Marshmello.MarshmelloWas.domain.user.repository.UserRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -134,6 +139,56 @@ class CareCardIdentityHttpTest {
                 careCard.getAction().getActionId());
         assertThat(feedbackRepository.findById(feedbackId).orElseThrow().getHelpfulnessScore())
                 .isEqualTo((short) 5);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("generationFailures")
+    void returnsGranularErrorWhenCareCardGenerationFails(
+            String reasonName,
+            int expectedStatus,
+            String expectedCode,
+            boolean retryable
+    ) throws Exception {
+        User user = userRepository.save(new User("failure-owner", null));
+        socialAccountRepository.save(new SocialAccount(
+                new SocialAccountId("test", SUBJECT),
+                user.getUserId()));
+        CheckIn checkIn = checkInRepository.save(new CheckIn(
+                false,
+                LocalDate.of(2026, 8, 14),
+                null,
+                (short) 1,
+                user.getUserId()));
+        Image image = new Image(user.getUserId(), "test/http-care-failure", "image/png", Instant.now());
+        image.attachTo(checkIn, user.getUserId());
+        imageRepository.save(image);
+        imageAnalysisRepository.save(new ImageAnalysis(image.id(), (short) 8));
+        when(generator.generate(any())).thenThrow(new CareCardGenerationException(
+                CareCardGenerationException.Reason.valueOf(reasonName)));
+
+        mockMvc.perform(post("/api/check-ins/{checkInId}/care-card", checkIn.id())
+                        .with(oidcLogin().idToken(token -> token.subject(SUBJECT)))
+                        .with(csrf()))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(expectedCode))
+                .andExpect(jsonPath("$.retryable").value(retryable))
+                .andExpect(jsonPath("$.message").isNotEmpty());
+
+        assertThat(careCardRepository.findByCheckInId(checkIn.id())).isEmpty();
+    }
+
+    private static Stream<Arguments> generationFailures() {
+        return Stream.of(
+                Arguments.of("UNAVAILABLE", 503, "AI_PROVIDER_UNAVAILABLE", true),
+                Arguments.of("AUTHENTICATION", 502, "AI_PROVIDER_AUTHENTICATION_FAILED", false),
+                Arguments.of("ACCESS_DENIED", 502, "AI_PROVIDER_ACCESS_DENIED", false),
+                Arguments.of("MODEL_UNAVAILABLE", 502, "AI_MODEL_UNAVAILABLE", false),
+                Arguments.of("QUOTA_EXCEEDED", 503, "AI_PROVIDER_QUOTA_EXCEEDED", false),
+                Arguments.of("RATE_LIMITED", 503, "AI_PROVIDER_RATE_LIMITED", true),
+                Arguments.of("REQUEST_REJECTED", 502, "AI_PROVIDER_REQUEST_REJECTED", false),
+                Arguments.of("TIMEOUT", 504, "AI_GENERATION_TIMEOUT", true),
+                Arguments.of("UPSTREAM", 502, "AI_PROVIDER_UPSTREAM_FAILURE", true),
+                Arguments.of("INVALID_OUTPUT", 502, "AI_PROVIDER_INVALID_RESPONSE", true));
     }
 
     @Test

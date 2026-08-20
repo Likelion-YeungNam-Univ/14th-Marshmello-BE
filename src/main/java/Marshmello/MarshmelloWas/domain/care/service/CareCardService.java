@@ -249,8 +249,15 @@ public class CareCardService {
     private ErrorCode errorCodeFor(CareCardGenerationException.Reason reason) {
         return switch (reason) {
             case UNAVAILABLE -> ErrorCode.AI_PROVIDER_UNAVAILABLE;
+            case AUTHENTICATION -> ErrorCode.AI_PROVIDER_AUTHENTICATION_FAILED;
+            case ACCESS_DENIED -> ErrorCode.AI_PROVIDER_ACCESS_DENIED;
+            case MODEL_UNAVAILABLE -> ErrorCode.AI_MODEL_UNAVAILABLE;
+            case QUOTA_EXCEEDED -> ErrorCode.AI_PROVIDER_QUOTA_EXCEEDED;
+            case RATE_LIMITED -> ErrorCode.AI_PROVIDER_RATE_LIMITED;
+            case REQUEST_REJECTED -> ErrorCode.AI_PROVIDER_REQUEST_REJECTED;
             case TIMEOUT -> ErrorCode.AI_GENERATION_TIMEOUT;
-            case UPSTREAM, INVALID_OUTPUT -> ErrorCode.CARE_CARD_GENERATION_FAILED;
+            case UPSTREAM -> ErrorCode.AI_PROVIDER_UPSTREAM_FAILURE;
+            case INVALID_OUTPUT -> ErrorCode.AI_PROVIDER_INVALID_RESPONSE;
             case NO_MATCHING_ACTION -> ErrorCode.ACTION_INVARIANT_VIOLATION;
         };
     }

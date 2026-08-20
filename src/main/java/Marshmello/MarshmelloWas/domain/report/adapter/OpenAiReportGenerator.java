@@ -73,7 +73,8 @@ public final class OpenAiReportGenerator implements ReportGenerator {
             OpenAiStructuredResponseSupport.FailureKind failureKind) {
         return switch (failureKind) {
             case TIMEOUT -> GenerationException.Reason.TIMEOUT;
-            case UPSTREAM -> GenerationException.Reason.UPSTREAM;
+            case AUTHENTICATION, ACCESS_DENIED, MODEL_UNAVAILABLE, QUOTA_EXCEEDED,
+                    RATE_LIMITED, REQUEST_REJECTED, UPSTREAM -> GenerationException.Reason.UPSTREAM;
             case INVALID_OUTPUT -> GenerationException.Reason.INVALID_OUTPUT;
         };
     }

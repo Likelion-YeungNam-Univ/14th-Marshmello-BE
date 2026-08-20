@@ -48,6 +48,12 @@ public interface CareCardGenerator {
 
         public enum Reason {
             UNAVAILABLE,
+            AUTHENTICATION,
+            ACCESS_DENIED,
+            MODEL_UNAVAILABLE,
+            QUOTA_EXCEEDED,
+            RATE_LIMITED,
+            REQUEST_REJECTED,
             TIMEOUT,
             UPSTREAM,
             INVALID_OUTPUT,

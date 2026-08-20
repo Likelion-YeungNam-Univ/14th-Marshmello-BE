@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.errors.OpenAIIoException;
 import com.openai.errors.OpenAIException;
 import com.openai.errors.OpenAIInvalidDataException;
+import com.openai.errors.OpenAIServiceException;
 import com.openai.models.responses.ResponseOutputMessage;
 import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.StructuredResponse;
@@ -14,8 +15,16 @@ import com.openai.models.responses.StructuredResponseOutputMessage;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public final class OpenAiStructuredResponseSupport {
+
+    private static final Set<String> QUOTA_ERROR_CODES = Set.of(
+            "credit_balance_exhausted",
+            "organization_spend_limit_exceeded",
+            "project_spend_limit_exceeded",
+            "organization_usage_limit_exceeded"
+    );
 
     private OpenAiStructuredResponseSupport() {
     }
@@ -71,7 +80,24 @@ public final class OpenAiStructuredResponseSupport {
         if (exception instanceof OpenAIInvalidDataException) {
             return FailureKind.INVALID_OUTPUT;
         }
+        if (exception instanceof OpenAIServiceException serviceException) {
+            return switch (serviceException.statusCode()) {
+                case 400, 422 -> FailureKind.REQUEST_REJECTED;
+                case 401 -> FailureKind.AUTHENTICATION;
+                case 403 -> FailureKind.ACCESS_DENIED;
+                case 404 -> FailureKind.MODEL_UNAVAILABLE;
+                case 429 -> isQuotaExceeded(serviceException)
+                        ? FailureKind.QUOTA_EXCEEDED
+                        : FailureKind.RATE_LIMITED;
+                default -> FailureKind.UPSTREAM;
+            };
+        }
         return FailureKind.UPSTREAM;
+    }
+
+    private static boolean isQuotaExceeded(OpenAIServiceException exception) {
+        return exception.code().filter(QUOTA_ERROR_CODES::contains).isPresent()
+                || exception.type().filter("insufficient_quota"::equals).isPresent();
     }
 
     public static String serialize(ObjectMapper objectMapper, Object input) {
@@ -83,6 +109,12 @@ public final class OpenAiStructuredResponseSupport {
     }
 
     public enum FailureKind {
+        AUTHENTICATION,
+        ACCESS_DENIED,
+        MODEL_UNAVAILABLE,
+        QUOTA_EXCEEDED,
+        RATE_LIMITED,
+        REQUEST_REJECTED,
         TIMEOUT,
         UPSTREAM,
         INVALID_OUTPUT

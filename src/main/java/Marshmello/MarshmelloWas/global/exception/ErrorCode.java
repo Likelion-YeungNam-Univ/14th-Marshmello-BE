@@ -26,6 +26,14 @@ public enum ErrorCode {
     IMAGE_ANALYZER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "이미지 분석 서비스를 사용할 수 없습니다.", true),
     IMAGE_STORAGE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "이미지 저장소를 사용할 수 없습니다.", true),
     AI_PROVIDER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서비스를 사용할 수 없습니다.", true),
+    AI_PROVIDER_AUTHENTICATION_FAILED(HttpStatus.BAD_GATEWAY, "AI 서비스 인증에 실패했습니다.", false),
+    AI_PROVIDER_ACCESS_DENIED(HttpStatus.BAD_GATEWAY, "AI 서비스 접근 권한이 없습니다.", false),
+    AI_MODEL_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "AI 모델을 사용할 수 없습니다.", false),
+    AI_PROVIDER_QUOTA_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "AI 서비스 사용 한도가 초과되었습니다.", false),
+    AI_PROVIDER_RATE_LIMITED(HttpStatus.SERVICE_UNAVAILABLE, "AI 서비스 요청이 일시적으로 제한되었습니다.", true),
+    AI_PROVIDER_REQUEST_REJECTED(HttpStatus.BAD_GATEWAY, "AI 서비스 요청이 거부되었습니다.", false),
+    AI_PROVIDER_UPSTREAM_FAILURE(HttpStatus.BAD_GATEWAY, "AI 서비스 처리 중 오류가 발생했습니다.", true),
+    AI_PROVIDER_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "AI 응답을 처리할 수 없습니다.", true),
     AI_GENERATION_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "AI 응답 시간이 초과되었습니다.", true),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.", false);
 

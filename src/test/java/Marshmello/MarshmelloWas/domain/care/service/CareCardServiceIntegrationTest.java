@@ -36,10 +36,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -190,6 +194,35 @@ class CareCardServiceIntegrationTest {
                 .isInstanceOfSatisfying(ApiException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.AI_GENERATION_TIMEOUT));
         assertThat(careCardRepository.count()).isZero();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("granularGeneratorFailures")
+    void mapsGranularGeneratorFailureToApiError(
+            String reasonName,
+            String expectedErrorCodeName
+    ) {
+        CheckIn checkIn = saveCheckInContext((short) 8);
+        CareCardGenerationException.Reason reason =
+                CareCardGenerationException.Reason.valueOf(reasonName);
+        when(generator.generate(any())).thenThrow(new CareCardGenerationException(reason));
+
+        assertThatThrownBy(() -> careCardService.create(checkIn.id()))
+                .isInstanceOfSatisfying(ApiException.class, exception ->
+                        assertThat(exception.errorCode().name()).isEqualTo(expectedErrorCodeName));
+        assertThat(careCardRepository.count()).isZero();
+    }
+
+    private static Stream<Arguments> granularGeneratorFailures() {
+        return Stream.of(
+                Arguments.of("AUTHENTICATION", "AI_PROVIDER_AUTHENTICATION_FAILED"),
+                Arguments.of("ACCESS_DENIED", "AI_PROVIDER_ACCESS_DENIED"),
+                Arguments.of("MODEL_UNAVAILABLE", "AI_MODEL_UNAVAILABLE"),
+                Arguments.of("QUOTA_EXCEEDED", "AI_PROVIDER_QUOTA_EXCEEDED"),
+                Arguments.of("RATE_LIMITED", "AI_PROVIDER_RATE_LIMITED"),
+                Arguments.of("REQUEST_REJECTED", "AI_PROVIDER_REQUEST_REJECTED"),
+                Arguments.of("UPSTREAM", "AI_PROVIDER_UPSTREAM_FAILURE"),
+                Arguments.of("INVALID_OUTPUT", "AI_PROVIDER_INVALID_RESPONSE"));
     }
 
     @Test
