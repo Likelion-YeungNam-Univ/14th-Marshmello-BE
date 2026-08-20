@@ -45,7 +45,7 @@ public final class OpenAiCareCardGenerator implements CareCardGenerator {
                             .text(CareCardStructuredOutput.class)
                             .store(false)
                             .reasoning(Reasoning.builder().effort(ReasoningEffort.LOW).build())
-                            .maxOutputTokens(1200)
+                            .maxOutputTokens(2500)
                             .build();
             StructuredResponse<CareCardStructuredOutput> response = client.responses().create(params);
             CareCardStructuredOutput output =
