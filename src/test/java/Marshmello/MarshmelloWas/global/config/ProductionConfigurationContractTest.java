@@ -151,6 +151,19 @@ class ProductionConfigurationContractTest {
     }
 
     @Test
+    void workflowsSeparatePushCiFromMergedPullRequestDeployment() throws IOException {
+        String ci = Files.readString(Path.of(".github/workflows/ci.yml"));
+        String deploy = Files.readString(Path.of(".github/workflows/deploy.yml"));
+
+        assertThat(ci)
+                .contains("push:\n    branches-ignore:\n      - develop\n      - main")
+                .doesNotContain("uses: ./.github/workflows/deploy.yml");
+        assertThat(deploy)
+                .contains("pull_request:\n    types: [closed]\n    branches:\n      - develop\n      - main")
+                .contains("if: github.event.pull_request.merged == true");
+    }
+
+    @Test
     void deploymentValidatorsRejectKnownPlaceholdersAndInvalidUrls() throws Exception {
         List<InvalidProductionValue> invalidValues = List.of(
                 new InvalidProductionValue(
@@ -233,7 +246,9 @@ class ProductionConfigurationContractTest {
     void composeDeploymentTestSuppliesEveryRequiredNonSecretFixture() throws IOException {
         String compose = Files.readString(Path.of("compose.yaml"));
         String ci = Files.readString(Path.of(".github/workflows/ci.yml"));
-        String step = extractBetween(ci, "      - name: Run Compose deployment test", "\n  deploy:");
+        int stepIndex = ci.indexOf("      - name: Run Compose deployment test");
+        assertThat(stepIndex).isGreaterThanOrEqualTo(0);
+        String step = ci.substring(stepIndex).replace("\r\n", "\n").strip();
         Map<String, String> environment = parseStepEnvironment(step);
 
         assertThat(environment)
