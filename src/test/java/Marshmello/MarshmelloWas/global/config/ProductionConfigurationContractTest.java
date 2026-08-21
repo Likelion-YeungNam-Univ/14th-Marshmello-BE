@@ -237,7 +237,7 @@ class ProductionConfigurationContractTest {
         Map<String, String> environment = parseStepEnvironment(step);
 
         assertThat(environment)
-                .containsEntry("OIDC_ISSUER_URI", "https://issuer.example.test")
+                .containsEntry("OIDC_ISSUER_URI", "https://accounts.google.com")
                 .containsEntry("APP_CORS_ALLOWED_ORIGINS", "https://app.example.test")
                 .containsEntry("APP_LOGIN_SUCCESS_URL", "https://app.example.test/signed-in");
         assertThat(parseSuppliedEnvironment(step))
