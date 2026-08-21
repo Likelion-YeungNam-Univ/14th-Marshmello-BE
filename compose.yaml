@@ -1,0 +1,103 @@
+services:
+  app:
+    platform: linux/amd64
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_ID: ${BUILD_ID:?BUILD_ID is required}
+      labels:
+        BUILD_ID: ${BUILD_ID:?BUILD_ID is required}
+        org.opencontainers.image.revision: ${BUILD_ID:?BUILD_ID is required}
+    ports:
+      - target: 8080
+        published: "${APP_PORT:?APP_PORT is required}"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    environment:
+      eureka.client.enabled: "false"
+      spring.cloud.discovery.enabled: "false"
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
+
+      AWS_REGION: ${AWS_REGION:?AWS_REGION is required}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
+      AWS_EC2_METADATA_V1_DISABLED: "true"
+
+      OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:?OIDC_ISSUER_URI is required}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?OIDC_CLIENT_ID is required}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?OIDC_CLIENT_SECRET is required}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid,email}
+
+      APP_ALLOWED_EMAILS: ${APP_ALLOWED_EMAILS:-}
+      APP_ALLOWED_EMAIL_DOMAINS: ${APP_ALLOWED_EMAIL_DOMAINS:-}
+      APP_ALLOWED_SUBJECTS: ${APP_ALLOWED_SUBJECTS:-}
+      APP_REQUIRE_VERIFIED_EMAIL: ${APP_REQUIRE_VERIFIED_EMAIL:-true}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:?APP_CORS_ALLOWED_ORIGINS is required}
+      APP_LOGIN_SUCCESS_URL: ${APP_LOGIN_SUCCESS_URL:?APP_LOGIN_SUCCESS_URL is required}
+
+      OIDC_GOOGLE_OFFLINE_ACCESS: ${OIDC_GOOGLE_OFFLINE_ACCESS:-false}
+      SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    secrets:
+      - source: postgres_password
+        target: spring.datasource.password
+        mode: 0400
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "${APP_UID:?APP_UID is required}:${APP_GID:?APP_GID is required}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+      - /opt/onnx-tmp:rw,exec,nosuid,nodev,size=64m,mode=0700,uid=${APP_UID:?APP_UID is required},gid=${APP_GID:?APP_GID is required}
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "java", "-cp", "/app/healthcheck", "Http200Probe", "http://127.0.0.1:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  postgres:
+    platform: linux/amd64
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+        mode: 0400
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:?POSTGRES_PASSWORD_FILE is required}
+
+volumes:
+  postgres-data:

@@ -1,0 +1,221 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+concurrency:
+  group: production-ec2
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    name: Deploy EC2
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APP_PORT: ${{ vars.APP_PORT }}
+      APP_CORS_ALLOWED_ORIGINS: ${{ vars.APP_CORS_ALLOWED_ORIGINS }}
+      APP_LOGIN_SUCCESS_URL: ${{ vars.APP_LOGIN_SUCCESS_URL }}
+      SESSION_COOKIE_SAME_SITE: ${{ vars.SESSION_COOKIE_SAME_SITE || 'none' }}
+      SESSION_COOKIE_SECURE: ${{ vars.SESSION_COOKIE_SECURE || 'true' }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+      OIDC_ISSUER_URI: ${{ vars.OIDC_ISSUER_URI }}
+      OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
+      OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+      EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      GH_ACTOR: ${{ github.actor }}
+      GH_TOKEN: ${{ github.token }}
+      IMAGE_REPOSITORY: ${{ vars.GHCR_IMAGE }}
+      RELEASE_ID: ${{ github.sha }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Check out tested develop commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          is_placeholder_value() {
+            case "${1,,}" in
+              change-me|replace-me|replace-me.apps.googleusercontent.com) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          is_nonlocal_https_url() {
+            local value="$1"
+            local allow_path="$2"
+            local authority host port=''
+            if [[ "$allow_path" == 1 ]]; then
+              [[ "$value" =~ ^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?(/[^?#[:space:]]*)?$ ]] || return 1
+            else
+              [[ "$value" =~ ^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?$ ]] || return 1
+            fi
+            authority="${value#https://}"
+            authority="${authority%%/*}"
+            host="${authority%%:*}"
+            host="${host,,}"
+            [[ "$host" == *.* && "$host" != .* && "$host" != *. && "$host" != *..* ]] || return 1
+            case "$host" in
+              localhost|localhost.*|*.localhost|*.localhost.*|127.*|0.0.0.0) return 1 ;;
+            esac
+            if [[ "$authority" == *:* ]]; then
+              port="${authority##*:}"
+              (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
+            fi
+          }
+
+          is_cors_origin_list() {
+            local value="$1"
+            local origin
+            local -a origins
+            [[ "$value" != ,* && "$value" != *, && "$value" != *,,* ]] || return 1
+            IFS=',' read -r -a origins <<< "$value"
+            (( ${#origins[@]} > 0 )) || return 1
+            for origin in "${origins[@]}"; do
+              origin="${origin#"${origin%%[![:space:]]*}"}"
+              origin="${origin%"${origin##*[![:space:]]}"}"
+              is_nonlocal_https_url "$origin" 0 || return 1
+            done
+          }
+
+          validate_production_value() {
+            local name="$1"
+            local value="${!name-}"
+            local valid=1
+            [[ -n "$value" && ! "$value" =~ ^[[:space:]]*$ ]] || valid=0
+            case "$name" in
+              APP_CORS_ALLOWED_ORIGINS) is_cors_origin_list "$value" || valid=0 ;;
+              APP_LOGIN_SUCCESS_URL|OIDC_ISSUER_URI) is_nonlocal_https_url "$value" 1 || valid=0 ;;
+              POSTGRES_DB|POSTGRES_USER) [[ "$value" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || valid=0 ;;
+              OIDC_CLIENT_ID|OIDC_CLIENT_SECRET)
+                is_placeholder_value "$value" && valid=0
+                ;;
+              *) valid=0 ;;
+            esac
+            if (( valid == 0 )); then
+              printf 'invalid required production value: %s\n' "$name" >&2
+              return 1
+            fi
+          }
+
+          [[ "$RELEASE_ID" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_ID" ]]
+          [[ "$IMAGE_REPOSITORY" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ ]]
+          [[ "$APP_PORT" =~ ^[0-9]+$ ]] && (( 10#$APP_PORT >= 1 && 10#$APP_PORT <= 65535 ))
+          [[ "$SESSION_COOKIE_SAME_SITE" =~ ^(lax|strict|none)$ ]]
+          [[ "$SESSION_COOKIE_SECURE" =~ ^(true|false)$ ]]
+          validate_production_value APP_CORS_ALLOWED_ORIGINS
+          validate_production_value APP_LOGIN_SUCCESS_URL
+          validate_production_value POSTGRES_DB
+          validate_production_value POSTGRES_USER
+          validate_production_value OIDC_ISSUER_URI
+          validate_production_value OIDC_CLIENT_ID
+          validate_production_value OIDC_CLIENT_SECRET
+          [[ "$AWS_REGION" =~ ^[a-z0-9-]+$ ]]
+          [[ "$AWS_S3_BUCKET" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]]
+
+      - name: Build and publish immutable amd64 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          readonly IMAGE_TAG="${IMAGE_REPOSITORY}:${RELEASE_ID}"
+
+          docker build \
+            --platform linux/amd64 \
+            --build-arg "BUILD_ID=${RELEASE_ID}" \
+            --tag "$IMAGE_TAG" \
+            .
+
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GH_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          docker push "$IMAGE_TAG"
+
+          IMAGE_DIGEST="$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}')"
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          readonly APP_IMAGE="${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
+          [[ "$APP_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*@sha256:[0-9a-f]{64}$ ]]
+          {
+            printf 'APP_IMAGE=%s\n' "$APP_IMAGE"
+          } >> "$GITHUB_ENV"
+
+      - name: Transfer immutable release bundle and deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$APP_IMAGE" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*@sha256:[0-9a-f]{64}$ ]]
+          [[ "$EC2_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$EC2_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          [[ -n "$EC2_SSH_PRIVATE_KEY" ]]
+          [[ -n "$EC2_KNOWN_HOSTS" ]]
+
+          BUNDLE_DIR="$(mktemp -d "${RUNNER_TEMP}/marshmello-release.XXXXXX")"
+          SSH_DIR="$(mktemp -d "${RUNNER_TEMP}/marshmello-ssh.XXXXXX")"
+          cleanup() {
+            rm -rf -- "$BUNDLE_DIR" "$SSH_DIR"
+          }
+          trap cleanup EXIT INT TERM
+
+          cp compose.yaml "$BUNDLE_DIR/compose.yaml"
+          cp scripts/deploy-ec2.sh "$BUNDLE_DIR/deploy-ec2.sh"
+          chmod 700 "$BUNDLE_DIR/deploy-ec2.sh"
+
+          SSH_KEY="$SSH_DIR/id_ed25519"
+          SSH_KNOWN_HOSTS="$SSH_DIR/known_hosts"
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > "$SSH_KEY"
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > "$SSH_KNOWN_HOSTS"
+          chmod 600 "$SSH_KEY" "$SSH_KNOWN_HOSTS"
+          ssh_options=(
+            -i "$SSH_KEY"
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS"
+          )
+
+          readonly TARGET="${EC2_USER}@${EC2_HOST}"
+          readonly REMOTE_RELEASE="/opt/marshmello-was/releases/${RELEASE_ID}"
+          ssh "${ssh_options[@]}" "$TARGET" "test ! -e '$REMOTE_RELEASE' && mkdir -m 700 -- '$REMOTE_RELEASE'"
+          scp "${ssh_options[@]}" "$BUNDLE_DIR/compose.yaml" "$BUNDLE_DIR/deploy-ec2.sh" "$TARGET:$REMOTE_RELEASE/"
+
+          remote_env=()
+          append_remote_env() {
+            local assignment
+            printf -v assignment '%q=%q' "$1" "$2"
+            remote_env+=("$assignment")
+          }
+          append_remote_env RELEASE_ID "$RELEASE_ID"
+          append_remote_env APP_IMAGE "$APP_IMAGE"
+          append_remote_env APP_PORT "$APP_PORT"
+          append_remote_env APP_CORS_ALLOWED_ORIGINS "$APP_CORS_ALLOWED_ORIGINS"
+          append_remote_env APP_LOGIN_SUCCESS_URL "$APP_LOGIN_SUCCESS_URL"
+          append_remote_env SESSION_COOKIE_SAME_SITE "$SESSION_COOKIE_SAME_SITE"
+          append_remote_env SESSION_COOKIE_SECURE "$SESSION_COOKIE_SECURE"
+          append_remote_env POSTGRES_DB "$POSTGRES_DB"
+          append_remote_env POSTGRES_USER "$POSTGRES_USER"
+          append_remote_env AWS_REGION "$AWS_REGION"
+          append_remote_env AWS_S3_BUCKET "$AWS_S3_BUCKET"
+          append_remote_env OIDC_ISSUER_URI "$OIDC_ISSUER_URI"
+          append_remote_env OIDC_CLIENT_ID "$OIDC_CLIENT_ID"
+          append_remote_env OIDC_CLIENT_SECRET "$OIDC_CLIENT_SECRET"
+          append_remote_env OPENAI_API_KEY "$OPENAI_API_KEY"
+          printf -v remote_script '%q' "$REMOTE_RELEASE/deploy-ec2.sh"
+          ssh "${ssh_options[@]}" "$TARGET" "chmod 700 -- $remote_script && env ${remote_env[*]} $remote_script"

@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - develop
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-image:
+    name: Build image and deployment test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Build linux/amd64 image
+        env:
+          BUILD_ID: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_ID" =~ ^[0-9a-f]{40}$ ]]
+          readonly IMAGE_TAG="marshmello-was-ci:${BUILD_ID}"
+
+          docker build \
+            --platform linux/amd64 \
+            --build-arg "BUILD_ID=${BUILD_ID}" \
+            --tag "$IMAGE_TAG" \
+            .
+
+          [[ "$(docker image inspect --format '{{.Architecture}}' "$IMAGE_TAG")" == "amd64" ]]
+          [[ "$(docker image inspect --format '{{index .Config.Labels "BUILD_ID"}}' "$IMAGE_TAG")" == "$BUILD_ID" ]]
+          [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE_TAG")" == "$BUILD_ID" ]]
+
+      - name: Run Compose deployment test
+        env:
+          BUILD_ID: ${{ github.sha }}
+          OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
+          OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+          OIDC_ISSUER_URI: https://accounts.google.com
+          APP_CORS_ALLOWED_ORIGINS: https://app.example.test
+          APP_LOGIN_SUCCESS_URL: https://app.example.test/signed-in
+          AWS_REGION: ap-northeast-2
+          AWS_S3_BUCKET: marshmello-ci
+        run: |
+          set -euo pipefail
+
+          readonly PROJECT_NAME="marshmello-was-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          readonly SECRET_DIR="$(mktemp -d "${RUNNER_TEMP}/marshmello-ci.XXXXXX")"
+          export APP_IMAGE="marshmello-was-ci:${BUILD_ID}"
+          export APP_PORT=18080
+          export APP_UID="$(id -u)"
+          export APP_GID="$(id -g)"
+          export POSTGRES_DB=marshmello_ci
+          export POSTGRES_USER=marshmello_ci
+          export POSTGRES_PASSWORD_FILE="${SECRET_DIR}/postgres_password"
+
+          cleanup() {
+            readonly exit_code="$?"
+            trap - EXIT
+            if (( exit_code != 0 )); then
+              docker compose -p "$PROJECT_NAME" -f compose.yaml ps || true
+              docker compose -p "$PROJECT_NAME" -f compose.yaml logs --no-color || true
+            fi
+            docker compose -p "$PROJECT_NAME" -f compose.yaml down -v --remove-orphans || true
+            docker image rm "$APP_IMAGE" >/dev/null 2>&1 || true
+            rm -rf -- "$SECRET_DIR"
+            exit "$exit_code"
+          }
+          trap cleanup EXIT INT TERM
+
+          openssl rand -hex 32 > "$POSTGRES_PASSWORD_FILE"
+          chmod 600 "$POSTGRES_PASSWORD_FILE"
+
+          readonly RESOLVED_CONFIG="${SECRET_DIR}/compose.resolved.json"
+          docker compose -p "$PROJECT_NAME" -f compose.yaml config --format json > "$RESOLVED_CONFIG"
+          jq -e --arg published "$APP_PORT" '
+            (.services.app.ports | type == "array") and
+            (.services.app.ports | length == 1) and
+            (.services.app.ports[0].target == 8080) and
+            ((.services.app.ports[0].published | tostring) == $published) and
+            (.services.app.ports[0].host_ip == "127.0.0.1") and
+            ([.services.app.ports[] | select(
+              ((.target | tostring) == "5174") or
+              ((.published | tostring) == "5174")
+            )] | length == 0)
+          ' "$RESOLVED_CONFIG" >/dev/null
+
+          docker compose -p "$PROJECT_NAME" -f compose.yaml up -d --wait --no-build
+
+          readonly APP_CONTAINER_ID="$(
+            docker compose -p "$PROJECT_NAME" -f compose.yaml ps -q app
+          )"
+          [[ "$APP_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+
+          readonly APP_BINDING="$(
+            docker inspect --format '{{range $target, $bindings := .NetworkSettings.Ports}}{{range $bindings}}{{$target}}={{.HostIp}}:{{.HostPort}}{{"\n"}}{{end}}{{end}}' "$APP_CONTAINER_ID"
+          )"
+          [[ "$APP_BINDING" == "8080/tcp=127.0.0.1:${APP_PORT}" ]]
+
+          readonly MOUNT_TABLE="$(
+            docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app cat /proc/mounts
+          )"
+          readonly DEFAULT_TMPFS_OPTIONS="$(
+            awk '$2 == "/tmp" && $3 == "tmpfs" {print $4}' <<< "$MOUNT_TABLE"
+          )"
+          [[ ",$DEFAULT_TMPFS_OPTIONS," == *,noexec,* ]]
+          [[ ",$DEFAULT_TMPFS_OPTIONS," == *,nosuid,* ]]
+          [[ ",$DEFAULT_TMPFS_OPTIONS," == *,nodev,* ]]
+
+          readonly ONNX_TMPFS_OPTIONS="$(
+            awk '$2 == "/opt/onnx-tmp" && $3 == "tmpfs" {print $4}' <<< "$MOUNT_TABLE"
+          )"
+          [[ ",$ONNX_TMPFS_OPTIONS," == *,nosuid,* ]]
+          [[ ",$ONNX_TMPFS_OPTIONS," == *,nodev,* ]]
+          [[ ",$ONNX_TMPFS_OPTIONS," != *,noexec,* ]]
+
+          printf 'default_tmpfs=%s onnx_tmpfs=%s\n' \
+            "$DEFAULT_TMPFS_OPTIONS" "$ONNX_TMPFS_OPTIONS"
+
+          readonly JVM_TMPDIR="$(
+            docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app \
+              java -XshowSettings:properties -version 2>&1 \
+              | awk -F'= ' '$1 ~ /^[[:space:]]*java\.io\.tmpdir[[:space:]]*$/ {print $2; exit}'
+          )"
+          printf 'java.io.tmpdir=%s\n' "$JVM_TMPDIR"
+          [[ "$JVM_TMPDIR" == "/opt/onnx-tmp" ]]
+
+          docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app sh -s <<'ONNX_EXEC_PROBE'
+          set -eu
+          probe=/opt/onnx-tmp/.exec-probe
+          trap 'rm -f "$probe"' EXIT
+          printf '#!/bin/sh\nexit 0\n' > "$probe"
+          chmod 700 "$probe"
+          "$probe"
+          ONNX_EXEC_PROBE
+
+          readonly HTTP_CODE="$(
+            curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --max-time 10 "http://127.0.0.1:${APP_PORT}/actuator/health"
+          )"
+          [[ "$HTTP_CODE" == "200" ]]
+
+          readonly DATABASE_RESULT="$(
+            docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T postgres \
+              sh -ec 'PGPASSWORD="$(cat /run/secrets/postgres_password)" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT 1"'
+          )"
+          [[ "$DATABASE_RESULT" == "1" ]]
