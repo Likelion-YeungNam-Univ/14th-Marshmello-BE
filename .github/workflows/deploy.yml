@@ -1,8 +1,7 @@
 name: Deploy
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - develop
       - main
@@ -18,7 +17,6 @@ permissions:
 jobs:
   deploy:
     name: Deploy EC2
-    if: github.event.pull_request.merged == true
     environment: production
     runs-on: ubuntu-24.04
     timeout-minutes: 30

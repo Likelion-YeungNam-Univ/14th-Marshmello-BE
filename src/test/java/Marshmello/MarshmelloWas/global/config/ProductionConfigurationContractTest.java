@@ -151,16 +151,20 @@ class ProductionConfigurationContractTest {
     }
 
     @Test
-    void workflowsSeparatePushCiFromMergedPullRequestDeployment() throws IOException {
+    void workflowsSeparateFeaturePushCiFromTargetBranchPushDeployment() throws IOException {
         String ci = Files.readString(Path.of(".github/workflows/ci.yml"));
         String deploy = Files.readString(Path.of(".github/workflows/deploy.yml"));
 
         assertThat(ci)
                 .contains("push:\n    branches-ignore:\n      - develop\n      - main")
+                .contains("  build-image:\n    name: Build image and deployment test")
+                .doesNotContain("\n  test:\n")
+                .doesNotContain("needs: test")
                 .doesNotContain("uses: ./.github/workflows/deploy.yml");
         assertThat(deploy)
-                .contains("pull_request:\n    types: [closed]\n    branches:\n      - develop\n      - main")
-                .contains("if: github.event.pull_request.merged == true");
+                .contains("push:\n    branches:\n      - develop\n      - main")
+                .doesNotContain("pull_request:")
+                .doesNotContain("github.event.pull_request.merged");
     }
 
     @Test
