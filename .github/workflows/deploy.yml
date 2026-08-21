@@ -1,11 +1,7 @@
 name: Deploy
 
 on:
-  pull_request:
-    types: [closed]
-    branches:
-      - develop
-      - main
+  workflow_call:
 
 concurrency:
   group: production-ec2
@@ -18,21 +14,20 @@ permissions:
 jobs:
   deploy:
     name: Deploy EC2
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     environment: production
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       APP_PORT: ${{ vars.APP_PORT }}
-      APP_CORS_ALLOWED_ORIGINS: ${{ vars.APP_CORS_ALLOWED_ORIGINS }}
-      APP_LOGIN_SUCCESS_URL: ${{ vars.APP_LOGIN_SUCCESS_URL }}
+      APP_CORS_ALLOWED_ORIGINS: ${{ vars.APP_CORS_ALLOWED_ORIGINS || 'http://localhost:5173' }}
+      APP_LOGIN_SUCCESS_URL: ${{ vars.APP_LOGIN_SUCCESS_URL || 'http://localhost:5173' }}
       SESSION_COOKIE_SAME_SITE: ${{ vars.SESSION_COOKIE_SAME_SITE || 'none' }}
       SESSION_COOKIE_SECURE: ${{ vars.SESSION_COOKIE_SECURE || 'true' }}
       POSTGRES_DB: ${{ vars.POSTGRES_DB }}
       POSTGRES_USER: ${{ vars.POSTGRES_USER }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
-      OIDC_ISSUER_URI: ${{ vars.OIDC_ISSUER_URI }}
       OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
       OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
       EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -55,84 +50,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          is_placeholder_value() {
-            case "${1,,}" in
-              change-me|replace-me|replace-me.apps.googleusercontent.com) return 0 ;;
-              *) return 1 ;;
-            esac
-          }
-
-          is_nonlocal_https_url() {
-            local value="$1"
-            local allow_path="$2"
-            local authority host port=''
-            if [[ "$allow_path" == 1 ]]; then
-              [[ "$value" =~ ^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?(/[^?#[:space:]]*)?$ ]] || return 1
-            else
-              [[ "$value" =~ ^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?$ ]] || return 1
-            fi
-            authority="${value#https://}"
-            authority="${authority%%/*}"
-            host="${authority%%:*}"
-            host="${host,,}"
-            [[ "$host" == *.* && "$host" != .* && "$host" != *. && "$host" != *..* ]] || return 1
-            case "$host" in
-              localhost|localhost.*|*.localhost|*.localhost.*|127.*|0.0.0.0) return 1 ;;
-            esac
-            if [[ "$authority" == *:* ]]; then
-              port="${authority##*:}"
-              (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
-            fi
-          }
-
-          is_cors_origin_list() {
-            local value="$1"
-            local origin
-            local -a origins
-            [[ "$value" != ,* && "$value" != *, && "$value" != *,,* ]] || return 1
-            IFS=',' read -r -a origins <<< "$value"
-            (( ${#origins[@]} > 0 )) || return 1
-            for origin in "${origins[@]}"; do
-              origin="${origin#"${origin%%[![:space:]]*}"}"
-              origin="${origin%"${origin##*[![:space:]]}"}"
-              is_nonlocal_https_url "$origin" 0 || return 1
-            done
-          }
-
-          validate_production_value() {
-            local name="$1"
-            local value="${!name-}"
-            local valid=1
-            [[ -n "$value" && ! "$value" =~ ^[[:space:]]*$ ]] || valid=0
-            case "$name" in
-              APP_CORS_ALLOWED_ORIGINS) is_cors_origin_list "$value" || valid=0 ;;
-              APP_LOGIN_SUCCESS_URL|OIDC_ISSUER_URI) is_nonlocal_https_url "$value" 1 || valid=0 ;;
-              POSTGRES_DB|POSTGRES_USER) [[ "$value" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || valid=0 ;;
-              OIDC_CLIENT_ID|OIDC_CLIENT_SECRET)
-                is_placeholder_value "$value" && valid=0
-                ;;
-              *) valid=0 ;;
-            esac
-            if (( valid == 0 )); then
-              printf 'invalid required production value: %s\n' "$name" >&2
-              return 1
-            fi
-          }
-
           [[ "$RELEASE_ID" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(git rev-parse HEAD)" == "$RELEASE_ID" ]]
           [[ "$IMAGE_REPOSITORY" =~ ^ghcr\.io/[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$ ]]
           [[ "$APP_PORT" =~ ^[0-9]+$ ]] && (( 10#$APP_PORT >= 1 && 10#$APP_PORT <= 65535 ))
           [[ "$SESSION_COOKIE_SAME_SITE" =~ ^(lax|strict|none)$ ]]
           [[ "$SESSION_COOKIE_SECURE" =~ ^(true|false)$ ]]
-          validate_production_value APP_CORS_ALLOWED_ORIGINS
-          validate_production_value APP_LOGIN_SUCCESS_URL
-          validate_production_value POSTGRES_DB
-          validate_production_value POSTGRES_USER
-          validate_production_value OIDC_ISSUER_URI
-          validate_production_value OIDC_CLIENT_ID
-          validate_production_value OIDC_CLIENT_SECRET
+          [[ "$POSTGRES_DB" =~ ^[a-z_][a-z0-9_]{0,62}$ ]]
+          [[ "$POSTGRES_USER" =~ ^[a-z_][a-z0-9_]{0,62}$ ]]
           [[ "$AWS_REGION" =~ ^[a-z0-9-]+$ ]]
           [[ "$AWS_S3_BUCKET" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]]
 
@@ -197,27 +122,4 @@ jobs:
           readonly REMOTE_RELEASE="/opt/marshmello-was/releases/${RELEASE_ID}"
           ssh "${ssh_options[@]}" "$TARGET" "test ! -e '$REMOTE_RELEASE' && mkdir -m 700 -- '$REMOTE_RELEASE'"
           scp "${ssh_options[@]}" "$BUNDLE_DIR/compose.yaml" "$BUNDLE_DIR/deploy-ec2.sh" "$TARGET:$REMOTE_RELEASE/"
-
-          remote_env=()
-          append_remote_env() {
-            local assignment
-            printf -v assignment '%q=%q' "$1" "$2"
-            remote_env+=("$assignment")
-          }
-          append_remote_env RELEASE_ID "$RELEASE_ID"
-          append_remote_env APP_IMAGE "$APP_IMAGE"
-          append_remote_env APP_PORT "$APP_PORT"
-          append_remote_env APP_CORS_ALLOWED_ORIGINS "$APP_CORS_ALLOWED_ORIGINS"
-          append_remote_env APP_LOGIN_SUCCESS_URL "$APP_LOGIN_SUCCESS_URL"
-          append_remote_env SESSION_COOKIE_SAME_SITE "$SESSION_COOKIE_SAME_SITE"
-          append_remote_env SESSION_COOKIE_SECURE "$SESSION_COOKIE_SECURE"
-          append_remote_env POSTGRES_DB "$POSTGRES_DB"
-          append_remote_env POSTGRES_USER "$POSTGRES_USER"
-          append_remote_env AWS_REGION "$AWS_REGION"
-          append_remote_env AWS_S3_BUCKET "$AWS_S3_BUCKET"
-          append_remote_env OIDC_ISSUER_URI "$OIDC_ISSUER_URI"
-          append_remote_env OIDC_CLIENT_ID "$OIDC_CLIENT_ID"
-          append_remote_env OIDC_CLIENT_SECRET "$OIDC_CLIENT_SECRET"
-          append_remote_env OPENAI_API_KEY "$OPENAI_API_KEY"
-          printf -v remote_script '%q' "$REMOTE_RELEASE/deploy-ec2.sh"
-          ssh "${ssh_options[@]}" "$TARGET" "chmod 700 -- $remote_script && env ${remote_env[*]} $remote_script"
+          ssh "${ssh_options[@]}" "$TARGET" "chmod 700 -- '$REMOTE_RELEASE/deploy-ec2.sh' && env RELEASE_ID='$RELEASE_ID' APP_IMAGE='$APP_IMAGE' APP_PORT='$APP_PORT' APP_CORS_ALLOWED_ORIGINS='$APP_CORS_ALLOWED_ORIGINS' APP_LOGIN_SUCCESS_URL='$APP_LOGIN_SUCCESS_URL' SESSION_COOKIE_SAME_SITE='$SESSION_COOKIE_SAME_SITE' SESSION_COOKIE_SECURE='$SESSION_COOKIE_SECURE' POSTGRES_DB='$POSTGRES_DB' POSTGRES_USER='$POSTGRES_USER' AWS_REGION='$AWS_REGION' AWS_S3_BUCKET='$AWS_S3_BUCKET' OIDC_CLIENT_ID='$OIDC_CLIENT_ID' OIDC_CLIENT_SECRET='$OIDC_CLIENT_SECRET' OPENAI_API_KEY='$OPENAI_API_KEY' '$REMOTE_RELEASE/deploy-ec2.sh'"

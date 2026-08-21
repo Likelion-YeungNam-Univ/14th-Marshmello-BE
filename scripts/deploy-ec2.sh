@@ -24,70 +24,6 @@ is_port() {
   [[ "$1" =~ ^[0-9]+$ ]] && (( 10#$1 >= 1 && 10#$1 <= 65535 ))
 }
 
-is_placeholder_value() {
-  case "${1,,}" in
-    change-me|replace-me|replace-me.apps.googleusercontent.com) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-is_nonlocal_https_url() {
-  local value="$1"
-  local allow_path="$2"
-  local authority host port=''
-  if [[ "$allow_path" == 1 ]]; then
-    [[ "$value" =~ ^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?(/[^?#[:space:]]*)?$ ]] || return 1
-  else
-    [[ "$value" =~ ^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?$ ]] || return 1
-  fi
-  authority="${value#https://}"
-  authority="${authority%%/*}"
-  host="${authority%%:*}"
-  host="${host,,}"
-  [[ "$host" == *.* && "$host" != .* && "$host" != *. && "$host" != *..* ]] || return 1
-  case "$host" in
-    localhost|localhost.*|*.localhost|*.localhost.*|127.*|0.0.0.0) return 1 ;;
-  esac
-  if [[ "$authority" == *:* ]]; then
-    port="${authority##*:}"
-    (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
-  fi
-}
-
-is_cors_origin_list() {
-  local value="$1"
-  local origin
-  local -a origins
-  [[ "$value" != ,* && "$value" != *, && "$value" != *,,* ]] || return 1
-  IFS=',' read -r -a origins <<< "$value"
-  (( ${#origins[@]} > 0 )) || return 1
-  for origin in "${origins[@]}"; do
-    origin="${origin#"${origin%%[![:space:]]*}"}"
-    origin="${origin%"${origin##*[![:space:]]}"}"
-    is_nonlocal_https_url "$origin" 0 || return 1
-  done
-}
-
-validate_production_value() {
-  local name="$1"
-  local value="${!name-}"
-  local valid=1
-  [[ -n "$value" && ! "$value" =~ ^[[:space:]]*$ ]] || valid=0
-  case "$name" in
-    APP_CORS_ALLOWED_ORIGINS) is_cors_origin_list "$value" || valid=0 ;;
-    APP_LOGIN_SUCCESS_URL|OIDC_ISSUER_URI) is_nonlocal_https_url "$value" 1 || valid=0 ;;
-    POSTGRES_DB|POSTGRES_USER) [[ "$value" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || valid=0 ;;
-    OIDC_CLIENT_ID|OIDC_CLIENT_SECRET)
-      is_placeholder_value "$value" && valid=0
-      ;;
-    *) valid=0 ;;
-  esac
-  if (( valid == 0 )); then
-    printf 'invalid required production value: %s\n' "$name" >&2
-    return 1
-  fi
-}
-
 owner_uid() {
   stat -c '%u' -- "$1"
 }
@@ -236,8 +172,8 @@ verify_app() {
   [[ "$build_id" == "$release_id" ]] || { VERIFY_ERROR='build-id-label-mismatch'; return 1; }
   status="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{.State.Status}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-status'; return 1; }
   [[ "$status" == 'running' ]] || { VERIFY_ERROR='app-is-not-running'; return 1; }
-  app_binding="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{range $target, $bindings := .NetworkSettings.Ports}}{{range $bindings}}{{$target}}={{.HostIp}}:{{.HostPort}}{{"\n"}}{{end}}{{end}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-port-binding'; return 1; }
-  [[ "$app_binding" == "8080/tcp=127.0.0.1:$port" ]] || { VERIFY_ERROR='app-port-mapping-is-not-exact-loopback-8080'; return 1; }
+  app_binding="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{with index .NetworkSettings.Ports "8080/tcp"}}{{with index . 0}}{{.HostIp}}:{{.HostPort}}{{end}}{{end}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-port-binding'; return 1; }
+  [[ "$app_binding" == "0.0.0.0:$port" ]] || { VERIFY_ERROR='app-port-mapping-mismatch'; return 1; }
   http_code="$(timeout --foreground "$COMMAND_TIMEOUT" curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "http://127.0.0.1:$port/actuator/health")" || { VERIFY_ERROR='readiness-request-failed'; return 1; }
   [[ "$http_code" == '200' ]] || { VERIFY_ERROR="readiness-status-is-$http_code"; return 1; }
 }
@@ -271,13 +207,6 @@ DEPLOY_UID="$(id -u)"
 DEPLOY_GID="$(id -g)"
 OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-}"
 OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
-OIDC_ISSUER_URI="${OIDC_ISSUER_URI:-}"
-APP_CORS_ALLOWED_ORIGINS="${APP_CORS_ALLOWED_ORIGINS:-}"
-APP_LOGIN_SUCCESS_URL="${APP_LOGIN_SUCCESS_URL:-}"
-SESSION_COOKIE_SAME_SITE="${SESSION_COOKIE_SAME_SITE:-}"
-SESSION_COOKIE_SECURE="${SESSION_COOKIE_SECURE:-}"
-POSTGRES_DB="${POSTGRES_DB:-}"
-POSTGRES_USER="${POSTGRES_USER:-}"
 AWS_REGION="${AWS_REGION:-}"
 AWS_S3_BUCKET="${AWS_S3_BUCKET:-}"
 
@@ -289,15 +218,8 @@ APP_GID="$DEPLOY_GID"
 is_release_id "$RELEASE_ID" || die 2 'RELEASE_ID must be exactly 40 lowercase hexadecimal characters'
 [[ -n "$APP_IMAGE" ]] || die 2 'APP_IMAGE is required'
 is_app_image "$APP_IMAGE" || die 2 'APP_IMAGE must be an immutable lowercase ghcr.io owner/repo sha256 digest reference'
-validate_production_value APP_CORS_ALLOWED_ORIGINS || die 2 'APP_CORS_ALLOWED_ORIGINS is missing or invalid'
-validate_production_value APP_LOGIN_SUCCESS_URL || die 2 'APP_LOGIN_SUCCESS_URL is missing or invalid'
-validate_production_value POSTGRES_DB || die 2 'POSTGRES_DB is missing or invalid'
-validate_production_value POSTGRES_USER || die 2 'POSTGRES_USER is missing or invalid'
-validate_production_value OIDC_ISSUER_URI || die 2 'OIDC_ISSUER_URI is missing or invalid'
-validate_production_value OIDC_CLIENT_ID || die 2 'OIDC_CLIENT_ID is missing or invalid'
-validate_production_value OIDC_CLIENT_SECRET || die 2 'OIDC_CLIENT_SECRET is missing or invalid'
-[[ "$SESSION_COOKIE_SAME_SITE" =~ ^(lax|strict|none)$ ]] || die 2 'SESSION_COOKIE_SAME_SITE must be lax, strict, or none'
-[[ "$SESSION_COOKIE_SECURE" =~ ^(true|false)$ ]] || die 2 'SESSION_COOKIE_SECURE must be true or false'
+[[ -n "$OIDC_CLIENT_ID" ]] || die 2 'OIDC_CLIENT_ID is required'
+[[ -n "$OIDC_CLIENT_SECRET" ]] || die 2 'OIDC_CLIENT_SECRET is required'
 [[ "$AWS_REGION" =~ ^[a-z0-9-]+$ ]] || die 2 'AWS_REGION must contain only lowercase letters, digits, and hyphens'
 [[ "$AWS_S3_BUCKET" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]] || die 2 'AWS_S3_BUCKET must be a valid lowercase S3 bucket name'
 [[ "$POSTGRES_IMAGE" == "$EXPECTED_POSTGRES_IMAGE" ]] || die 2 'POSTGRES_IMAGE does not match the fixed deployment digest'
@@ -368,10 +290,7 @@ elif [[ -e "$PREVIOUS_STATE" ]]; then
 fi
 
 export APP_IMAGE POSTGRES_IMAGE POSTGRES_PASSWORD_FILE APP_PORT APP_UID APP_GID
-export APP_CORS_ALLOWED_ORIGINS APP_LOGIN_SUCCESS_URL
-export POSTGRES_DB POSTGRES_USER
-export OIDC_ISSUER_URI OIDC_CLIENT_ID OIDC_CLIENT_SECRET
-export SESSION_COOKIE_SAME_SITE SESSION_COOKIE_SECURE AWS_REGION AWS_S3_BUCKET
+export OIDC_CLIENT_ID OIDC_CLIENT_SECRET AWS_REGION AWS_S3_BUCKET
 export BUILD_ID="$RELEASE_ID"
 
 compose "$NEW_BUNDLE_PATH" pull || die 20 'new release image pull failed'

@@ -4,14 +4,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import Marshmello.MarshmelloWas.domain.auth.adapter.ModelGateAuthorizationManager;
 import Marshmello.MarshmelloWas.domain.auth.adapter.ProvisioningOidcUserService;
-import Marshmello.MarshmelloWas.global.config.CorsAllowedOrigins;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -59,11 +61,12 @@ public class SecurityConfig {
             ModelGateAuthorizationManager modelGateAuthorizationManager,
             ProvisioningOidcUserService provisioningOidcUserService,
             OidcSecurityProperties oidcProperties,
-            CorsAllowedOrigins allowedOrigins,
+            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins,
             @Value("${app.login-success-url:/}") String loginSuccessUrl
     ) throws Exception {
+        Set<String> allowedLoginOrigins = parseOrigins(allowedOrigins);
         OAuth2AuthorizationRequestResolver authorizationRequestResolver =
-            authorizationRequestResolver(clientRegistrationRepository, oidcProperties, allowedOrigins);
+            authorizationRequestResolver(clientRegistrationRepository, oidcProperties, allowedLoginOrigins);
 
         http
             .cors(Customizer.withDefaults())
@@ -183,7 +186,7 @@ public class SecurityConfig {
     private OAuth2AuthorizationRequestResolver authorizationRequestResolver(
             ClientRegistrationRepository clientRegistrationRepository,
             OidcSecurityProperties oidcProperties,
-            CorsAllowedOrigins allowedOrigins
+            Set<String> allowedLoginOrigins
     ) {
         DefaultOAuth2AuthorizationRequestResolver delegate =
             new DefaultOAuth2AuthorizationRequestResolver(
@@ -204,7 +207,15 @@ public class SecurityConfig {
         }
 
         delegate.setAuthorizationRequestCustomizer(customizer);
-        return new OriginAwareAuthorizationRequestResolver(delegate, allowedOrigins);
+        return new OriginAwareAuthorizationRequestResolver(delegate, allowedLoginOrigins);
+    }
+
+    private static Set<String> parseOrigins(String rawOrigins) {
+        return Arrays.stream(rawOrigins.split(",", -1))
+                .map(String::trim)
+                .map(SecurityConfig::originOf)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     private static String originOf(String value) {
@@ -221,9 +232,9 @@ public class SecurityConfig {
                 return null;
             }
             return new URI(
-                    scheme,
+                    scheme.toLowerCase(Locale.ROOT),
                     null,
-                    host,
+                    host.toLowerCase(Locale.ROOT),
                     uri.getPort(),
                     null,
                     null,
@@ -237,14 +248,14 @@ public class SecurityConfig {
             implements OAuth2AuthorizationRequestResolver {
 
         private final OAuth2AuthorizationRequestResolver delegate;
-        private final CorsAllowedOrigins allowedOrigins;
+        private final Set<String> allowedLoginOrigins;
 
         private OriginAwareAuthorizationRequestResolver(
                 OAuth2AuthorizationRequestResolver delegate,
-                CorsAllowedOrigins allowedOrigins
+                Set<String> allowedLoginOrigins
         ) {
             this.delegate = delegate;
-            this.allowedOrigins = allowedOrigins;
+            this.allowedLoginOrigins = allowedLoginOrigins;
         }
 
         @Override
@@ -286,7 +297,7 @@ public class SecurityConfig {
             return Arrays.stream(candidates)
                     .map(SecurityConfig::originOf)
                     .filter(Objects::nonNull)
-                    .filter(allowedOrigins.values()::contains)
+                    .filter(allowedLoginOrigins::contains)
                     .findFirst()
                     .orElse(null);
         }

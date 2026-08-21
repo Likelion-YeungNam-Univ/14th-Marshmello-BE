@@ -52,8 +52,8 @@ class SwaggerHttpQaTest {
                     .properties(
                             "server.port=0",
                             "SWAGGER_ENABLED=not-a-boolean",
-                            "springdoc.api-docs.enabled=${SWAGGER_ENABLED:false}",
-                            "springdoc.swagger-ui.enabled=${SWAGGER_ENABLED:false}",
+                            "springdoc.api-docs.enabled=${SWAGGER_ENABLED:true}",
+                            "springdoc.swagger-ui.enabled=${SWAGGER_ENABLED:true}",
                             "springdoc.paths-to-match=/api/**")
                     .run()) {
             }

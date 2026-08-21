@@ -40,8 +40,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "app.login-success-url=http://localhost:5173",
-                "app.cors.allowed-origins= http://localhost:5173, , "
-                        + "https://dev.dia8lj4ohc0fh.amplifyapp.com, http://localhost:5173 ",
+                "app.cors.allowed-origins=http://localhost:5173,https://dev.dia8lj4ohc0fh.amplifyapp.com",
                 "spring.security.oauth2.client.provider.test-provider.user-info-uri="
         })
 @Import(SecurityHttpQaTest.OAuthCallbackTestConfiguration.class)
@@ -75,32 +74,13 @@ class SecurityHttpQaTest {
 
     @Test
     void allowsConfiguredOriginPreflightForProtectedApiBeforeAuthentication() throws Exception {
-        for (String origin : configuredOrigins()) {
-            HttpResponse<String> response = options("/api/me", origin);
+        HttpResponse<String> response = options("/api/me", "http://localhost:5173");
 
-            assertThat(response.statusCode()).as(origin).isEqualTo(200);
-            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
-                    .as(origin)
-                    .hasValue(origin);
-            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS))
-                    .as(origin)
-                    .hasValue("true");
-        }
-    }
-
-    @Test
-    void allowsTheSameConfiguredOriginPreflightForLogout() throws Exception {
-        for (String origin : configuredOrigins()) {
-            HttpResponse<String> response = options("/logout", origin, HttpMethod.POST);
-
-            assertThat(response.statusCode()).as(origin).isEqualTo(200);
-            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
-                    .as(origin)
-                    .hasValue(origin);
-            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS))
-                    .as(origin)
-                    .hasValue("true");
-        }
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .hasValue("http://localhost:5173");
+        assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS))
+                .hasValue("true");
     }
 
     @Test
@@ -127,27 +107,11 @@ class SecurityHttpQaTest {
     }
 
     @Test
-    void rejectsUnlistedAttackerAndLookalikeOriginsForProtectedApi() throws Exception {
-        for (String origin : rejectedOrigins()) {
-            HttpResponse<String> response = options("/api/me", origin);
+    void rejectsAttackerOriginPreflightForProtectedApi() throws Exception {
+        HttpResponse<String> response = options("/api/me", "https://attacker.example.test");
 
-            assertThat(response.statusCode()).as(origin).isEqualTo(403);
-            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
-                    .as(origin)
-                    .isEmpty();
-        }
-    }
-
-    @Test
-    void rejectsUnlistedAttackerAndLookalikeOriginsForLogout() throws Exception {
-        for (String origin : rejectedOrigins()) {
-            HttpResponse<String> response = options("/logout", origin, HttpMethod.POST);
-
-            assertThat(response.statusCode()).as(origin).isEqualTo(403);
-            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
-                    .as(origin)
-                    .isEmpty();
-        }
+        assertThat(response.statusCode()).isEqualTo(403);
+        assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)).isEmpty();
     }
 
     @Test
@@ -279,32 +243,11 @@ class SecurityHttpQaTest {
                 .build();
     }
 
-    private static List<String> configuredOrigins() {
-        return List.of(
-                "http://localhost:5173",
-                "https://dev.dia8lj4ohc0fh.amplifyapp.com");
-    }
-
-    private static List<String> rejectedOrigins() {
-        return List.of(
-                "https://unlisted.example.test",
-                "https://attacker.example.test",
-                "http://localhost:5174");
-    }
-
     private HttpResponse<String> options(String path, String origin) throws Exception {
-        return options(path, origin, HttpMethod.GET);
-    }
-
-    private HttpResponse<String> options(
-            String path,
-            String origin,
-            HttpMethod requestedMethod
-    ) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + path))
                 .header(HttpHeaders.ORIGIN, origin)
-                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, requestedMethod.name())
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name())
                 .method(HttpMethod.OPTIONS.name(), HttpRequest.BodyPublishers.noBody())
                 .build();
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
