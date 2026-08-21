@@ -180,6 +180,7 @@ jobs:
 
   deploy:
     name: Deploy
+    if: ${{ github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' }}
     needs:
       - test
       - build-image
