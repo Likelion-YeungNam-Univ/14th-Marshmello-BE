@@ -31,7 +31,7 @@ public class CheckInController {
         this.checkInQueryService = checkInQueryService;
     }
 
-    @PostMapping(params = "!date")
+    @PostMapping
     public ResponseEntity<CheckInResponse> create(
             @Valid @RequestBody CheckInCreateRequest request
     ) {
