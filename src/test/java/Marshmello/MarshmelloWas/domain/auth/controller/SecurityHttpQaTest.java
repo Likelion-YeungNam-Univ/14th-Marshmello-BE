@@ -40,7 +40,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "app.login-success-url=http://localhost:5173",
-                "app.cors.allowed-origins=http://localhost:5173,https://dev.dia8lj4ohc0fh.amplifyapp.com",
+                "app.cors.allowed-origins= http://localhost:5173, , "
+                        + "https://dev.dia8lj4ohc0fh.amplifyapp.com, http://localhost:5173 ",
                 "spring.security.oauth2.client.provider.test-provider.user-info-uri="
         })
 @Import(SecurityHttpQaTest.OAuthCallbackTestConfiguration.class)
@@ -74,13 +75,17 @@ class SecurityHttpQaTest {
 
     @Test
     void allowsConfiguredOriginPreflightForProtectedApiBeforeAuthentication() throws Exception {
-        HttpResponse<String> response = options("/api/me", "http://localhost:5173");
+        for (String origin : configuredOrigins()) {
+            HttpResponse<String> response = options("/api/me", origin);
 
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
-                .hasValue("http://localhost:5173");
-        assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS))
-                .hasValue("true");
+            assertThat(response.statusCode()).as(origin).isEqualTo(200);
+            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
+                    .as(origin)
+                    .hasValue(origin);
+            assertThat(response.headers().firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS))
+                    .as(origin)
+                    .hasValue("true");
+        }
     }
 
     @Test
@@ -241,6 +246,12 @@ class SecurityHttpQaTest {
                 .cookieHandler(new CookieManager())
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
+    }
+
+    private static List<String> configuredOrigins() {
+        return List.of(
+                "http://localhost:5173",
+                "https://dev.dia8lj4ohc0fh.amplifyapp.com");
     }
 
     private HttpResponse<String> options(String path, String origin) throws Exception {
