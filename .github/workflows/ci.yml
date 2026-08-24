@@ -68,6 +68,8 @@ jobs:
           BUILD_ID: ${{ github.sha }}
           OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
           OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+          APP_CORS_ALLOWED_ORIGINS: https://app.example.test
+          APP_LOGIN_SUCCESS_URL: https://app.example.test/signed-in
           AWS_REGION: ap-northeast-2
           AWS_S3_BUCKET: marshmello-ci
         run: |
@@ -100,12 +102,31 @@ jobs:
           openssl rand -hex 32 > "$POSTGRES_PASSWORD_FILE"
           chmod 600 "$POSTGRES_PASSWORD_FILE"
 
+          readonly RESOLVED_CONFIG="${SECRET_DIR}/compose.resolved.json"
+          docker compose -p "$PROJECT_NAME" -f compose.yaml config --format json > "$RESOLVED_CONFIG"
+          jq -e --arg published "$APP_PORT" '
+            (.services.app.ports | type == "array") and
+            (.services.app.ports | length == 1) and
+            (.services.app.ports[0].target == 8080) and
+            ((.services.app.ports[0].published | tostring) == $published) and
+            (.services.app.ports[0].host_ip == "127.0.0.1") and
+            ([.services.app.ports[] | select(
+              ((.target | tostring) == "5174") or
+              ((.published | tostring) == "5174")
+            )] | length == 0)
+          ' "$RESOLVED_CONFIG" >/dev/null
+
           docker compose -p "$PROJECT_NAME" -f compose.yaml up -d --wait --no-build
 
           readonly APP_CONTAINER_ID="$(
             docker compose -p "$PROJECT_NAME" -f compose.yaml ps -q app
           )"
           [[ "$APP_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+
+          readonly APP_BINDING="$(
+            docker inspect --format '{{range $target, $bindings := .NetworkSettings.Ports}}{{range $bindings}}{{$target}}={{.HostIp}}:{{.HostPort}}{{"\n"}}{{end}}{{end}}' "$APP_CONTAINER_ID"
+          )"
+          [[ "$APP_BINDING" == "8080/tcp=127.0.0.1:${APP_PORT}" ]]
 
           readonly MOUNT_TABLE="$(
             docker compose -p "$PROJECT_NAME" -f compose.yaml exec -T app cat /proc/mounts
@@ -155,15 +176,3 @@ jobs:
               sh -ec 'PGPASSWORD="$(cat /run/secrets/postgres_password)" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT 1"'
           )"
           [[ "$DATABASE_RESULT" == "1" ]]
-
-  deploy:
-    name: Deploy
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
-    needs:
-      - test
-      - build-image
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/deploy.yml
-    secrets: inherit

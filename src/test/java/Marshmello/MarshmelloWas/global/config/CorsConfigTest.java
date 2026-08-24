@@ -26,7 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.cors.allowed-origins= http://localhost:5173, , https://staging.example.test, http://localhost:5173 "
+})
 @AutoConfigureMockMvc
 @Import({CorsConfigTest.CorsProbeController.class, CorsConfigTest.CorsProbeSecurityConfiguration.class})
 class CorsConfigTest {
@@ -37,7 +39,7 @@ class CorsConfigTest {
     @Test
     void registersDefaultCorsPolicyForApiPaths() {
         InspectableCorsRegistry registry = new InspectableCorsRegistry();
-        new CorsConfig("http://localhost:5173").addCorsMappings(registry);
+        corsConfig("http://localhost:5173").addCorsMappings(registry);
 
         Map<String, CorsConfiguration> registrations = registry.registrations();
         CorsConfiguration registration = registrations.get("/api/**");
@@ -58,7 +60,7 @@ class CorsConfigTest {
     @Test
     void registersTwoCommaSeparatedOriginsInOrder() {
         InspectableCorsRegistry registry = new InspectableCorsRegistry();
-        new CorsConfig("http://localhost:5173,https://staging.example.test").addCorsMappings(registry);
+        corsConfig("http://localhost:5173,https://staging.example.test").addCorsMappings(registry);
 
         assertThat(registry.registrations().get("/api/**").getAllowedOrigins())
                 .containsExactly("http://localhost:5173", "https://staging.example.test");
@@ -67,15 +69,28 @@ class CorsConfigTest {
     @Test
     void trimsOriginsAndDiscardsBlankValues() {
         InspectableCorsRegistry registry = new InspectableCorsRegistry();
-        new CorsConfig(" , http://localhost:5173 , , https://staging.example.test , ").addCorsMappings(registry);
+        corsConfig(" , http://localhost:5173 , , https://staging.example.test , ").addCorsMappings(registry);
 
         assertThat(registry.registrations().get("/api/**").getAllowedOrigins())
                 .containsExactly("http://localhost:5173", "https://staging.example.test");
 
         InspectableCorsRegistry blankRegistry = new InspectableCorsRegistry();
-        new CorsConfig("   ").addCorsMappings(blankRegistry);
+        corsConfig("   ").addCorsMappings(blankRegistry);
 
         assertThat(blankRegistry.registrations().get("/api/**").getAllowedOrigins()).isEmpty();
+    }
+
+    @Test
+    void reusesOneNormalizedOriginListForApiAndLogout() {
+        InspectableCorsRegistry registry = new InspectableCorsRegistry();
+        corsConfig(" https://app.example.test, ,https://admin.example.test,https://app.example.test ")
+                .addCorsMappings(registry);
+
+        assertThat(registry.registrations().get("/api/**").getAllowedOrigins())
+                .containsExactly("https://app.example.test", "https://admin.example.test");
+        assertThat(registry.registrations().get("/logout").getAllowedOrigins())
+                .containsExactlyElementsOf(
+                        registry.registrations().get("/api/**").getAllowedOrigins());
     }
 
     @Test
@@ -90,10 +105,32 @@ class CorsConfigTest {
     }
 
     @Test
+    void allowsTheSameConfiguredOriginPreflightForLogout() throws Exception {
+        mockMvc.perform(options("/logout")
+                        .header(HttpHeaders.ORIGIN, "https://staging.example.test")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "X-CSRF-TOKEN"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        "https://staging.example.test"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
+    }
+
+    @Test
     void rejectsArbitraryOriginPreflightWithoutAllowOriginHeader() throws Exception {
         mockMvc.perform(options("/api/cors-probe")
                         .header(HttpHeaders.ORIGIN, "https://example.invalid")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name()))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
+    @Test
+    void rejectsArbitraryOriginPreflightForLogoutWithoutAllowOriginHeader() throws Exception {
+        mockMvc.perform(options("/logout")
+                        .header(HttpHeaders.ORIGIN, "https://example.invalid")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name()))
                 .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
     }
@@ -137,6 +174,10 @@ class CorsConfigTest {
                     .cors(Customizer.withDefaults());
             return http.build();
         }
+    }
+
+    private static CorsConfig corsConfig(String configuredOrigins) {
+        return new CorsConfig(new CorsAllowedOrigins(configuredOrigins));
     }
 
     private static final class InspectableCorsRegistry extends CorsRegistry {

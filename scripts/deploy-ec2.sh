@@ -172,8 +172,8 @@ verify_app() {
   [[ "$build_id" == "$release_id" ]] || { VERIFY_ERROR='build-id-label-mismatch'; return 1; }
   status="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{.State.Status}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-status'; return 1; }
   [[ "$status" == 'running' ]] || { VERIFY_ERROR='app-is-not-running'; return 1; }
-  app_binding="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{with index .NetworkSettings.Ports "8080/tcp"}}{{with index . 0}}{{.HostIp}}:{{.HostPort}}{{end}}{{end}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-port-binding'; return 1; }
-  [[ "$app_binding" == "0.0.0.0:$port" ]] || { VERIFY_ERROR='app-port-mapping-mismatch'; return 1; }
+  app_binding="$(timeout --foreground "$COMMAND_TIMEOUT" docker inspect --format '{{range $target, $bindings := .NetworkSettings.Ports}}{{range $bindings}}{{$target}}={{.HostIp}}:{{.HostPort}}{{"\n"}}{{end}}{{end}}' "$cid")" || { VERIFY_ERROR='cannot-inspect-app-port-binding'; return 1; }
+  [[ "$app_binding" == "8080/tcp=127.0.0.1:$port" ]] || { VERIFY_ERROR='app-port-mapping-is-not-exact-loopback-8080'; return 1; }
   http_code="$(timeout --foreground "$COMMAND_TIMEOUT" curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "http://127.0.0.1:$port/actuator/health")" || { VERIFY_ERROR='readiness-request-failed'; return 1; }
   [[ "$http_code" == '200' ]] || { VERIFY_ERROR="readiness-status-is-$http_code"; return 1; }
 }
